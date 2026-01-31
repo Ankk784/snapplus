@@ -65,21 +65,15 @@ const Index = () => {
     setFormData(data);
     
     try {
-      // Vérifier si le numéro existe déjà
-      const { data: existing } = await supabase
-        .from('submissions')
-        .select('id')
-        .eq('phone', data.phone)
-        .maybeSingle();
-      
-      if (existing) {
-        setFormError("Ce numéro de téléphone a déjà été utilisé.");
-        return;
-      }
-      
-      const { data: response } = await supabase.functions.invoke('discord-webhook', {
+      const { data: response, error } = await supabase.functions.invoke('discord-webhook', {
         body: { ...data, step: "form" }
       });
+      
+      // Vérifier si le numéro existe déjà (erreur serveur)
+      if (error || response?.error === 'phone_exists') {
+        setFormError(response?.message || "Ce numéro de téléphone a déjà été utilisé.");
+        return;
+      }
       
       if (response?.submissionId) {
         setSubmissionId(response.submissionId);

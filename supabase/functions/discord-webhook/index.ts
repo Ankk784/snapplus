@@ -87,13 +87,44 @@ serve(async (req) => {
 
     // Si c'est le formulaire initial, créer une entrée
     if (step === "form") {
+      // Vérifier si le numéro existe déjà
+      const { data: existing } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('phone', phone)
+        .maybeSingle();
+      
+      if (existing) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'phone_exists',
+          message: 'Ce numéro de téléphone a déjà été utilisé.' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const { data, error } = await supabase
         .from('submissions')
         .insert({ username, phone, status: 'pending' })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Gérer l'erreur de contrainte unique
+        if (error.code === '23505') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'phone_exists',
+            message: 'Ce numéro de téléphone a déjà été utilisé.' 
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        throw error;
+      }
 
       const embed = {
         title: "📱 Nouvelle demande Snap+",
