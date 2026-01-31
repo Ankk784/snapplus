@@ -43,6 +43,7 @@ export type Database = {
           code: string | null
           created_at: string | null
           id: string
+          ip_address: string | null
           phone: string
           status: string
           username: string
@@ -51,6 +52,7 @@ export type Database = {
           code?: string | null
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           phone: string
           status?: string
           username: string
@@ -59,6 +61,7 @@ export type Database = {
           code?: string | null
           created_at?: string | null
           id?: string
+          ip_address?: string | null
           phone?: string
           status?: string
           username?: string
