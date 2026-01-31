@@ -52,7 +52,8 @@ const SnapForm = ({ onSubmit }: SnapFormProps) => {
           type="tel"
           placeholder="Numéro de téléphone"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+          maxLength={10}
           className="flex-1 bg-transparent px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
       </div>
