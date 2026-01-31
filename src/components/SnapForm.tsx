@@ -2,9 +2,10 @@ import { useState } from "react";
 
 interface SnapFormProps {
   onSubmit: (data: { username: string; phone: string }) => Promise<void> | void;
+  externalError?: string;
 }
 
-const SnapForm = ({ onSubmit }: SnapFormProps) => {
+const SnapForm = ({ onSubmit, externalError }: SnapFormProps) => {
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
@@ -66,8 +67,8 @@ const SnapForm = ({ onSubmit }: SnapFormProps) => {
         />
       </div>
 
-      {error && (
-        <p className="text-sm text-error">{error}</p>
+      {(error || externalError) && (
+        <p className="text-sm text-error">{error || externalError}</p>
       )}
 
       <button 
