@@ -1,11 +1,14 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import SnapLogo from "@/components/SnapLogo";
+import DisclaimerBox from "@/components/DisclaimerBox";
+import SnapForm from "@/components/SnapForm";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+      <div className="flex flex-col items-center gap-8 w-full max-w-md">
+        <SnapLogo />
+        <DisclaimerBox />
+        <SnapForm />
       </div>
     </div>
   );
