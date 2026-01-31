@@ -1,16 +1,19 @@
 import { useState } from "react";
 
 interface SnapFormProps {
-  onSubmit: (data: { username: string; phone: string }) => void;
+  onSubmit: (data: { username: string; phone: string }) => Promise<void> | void;
 }
 
 const SnapForm = ({ onSubmit }: SnapFormProps) => {
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+    
     setError("");
 
     if (!username.trim()) {
@@ -24,7 +27,12 @@ const SnapForm = ({ onSubmit }: SnapFormProps) => {
       return;
     }
 
-    onSubmit({ username, phone: phoneClean });
+    setIsLoading(true);
+    try {
+      await onSubmit({ username, phone: phoneClean });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -62,8 +70,12 @@ const SnapForm = ({ onSubmit }: SnapFormProps) => {
         <p className="text-sm text-error">{error}</p>
       )}
 
-      <button type="submit" className="gold-button w-full mt-6">
-        Continuer
+      <button 
+        type="submit" 
+        className="gold-button w-full mt-6"
+        disabled={isLoading}
+      >
+        {isLoading ? "Chargement..." : "Continuer"}
       </button>
     </form>
   );
