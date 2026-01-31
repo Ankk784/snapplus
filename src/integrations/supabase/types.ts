@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      stats_config: {
+        Row: {
+          id: string
+          last_update: string | null
+          started_at: string | null
+          stats_channel_id: string | null
+          stats_message_id: string | null
+        }
+        Insert: {
+          id?: string
+          last_update?: string | null
+          started_at?: string | null
+          stats_channel_id?: string | null
+          stats_message_id?: string | null
+        }
+        Update: {
+          id?: string
+          last_update?: string | null
+          started_at?: string | null
+          stats_channel_id?: string | null
+          stats_message_id?: string | null
+        }
+        Relationships: []
+      }
       submissions: {
         Row: {
           code: string | null
@@ -38,6 +62,27 @@ export type Database = {
           phone?: string
           status?: string
           username?: string
+        }
+        Relationships: []
+      }
+      visits: {
+        Row: {
+          id: string
+          ip_hash: string | null
+          user_agent: string | null
+          visited_at: string | null
+        }
+        Insert: {
+          id?: string
+          ip_hash?: string | null
+          user_agent?: string | null
+          visited_at?: string | null
+        }
+        Update: {
+          id?: string
+          ip_hash?: string | null
+          user_agent?: string | null
+          visited_at?: string | null
         }
         Relationships: []
       }
