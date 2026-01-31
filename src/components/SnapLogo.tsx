@@ -6,7 +6,11 @@ const SnapLogo = () => {
       <img 
         src={snapLogo} 
         alt="Snap+" 
-        className="w-24 h-24 rounded-2xl object-cover"
+        className="w-28 h-28 object-cover"
+        style={{ 
+          background: 'transparent',
+          mixBlendMode: 'lighten'
+        }}
       />
     </div>
   );
