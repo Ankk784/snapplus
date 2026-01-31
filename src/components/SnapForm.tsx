@@ -1,5 +1,5 @@
 import { useState } from "react";
-import franceFlag from "@/assets/france-flag.webp";
+import franceFlag from "@/assets/france-flag.png";
 
 interface SnapFormProps {
   onSubmit: (data: { username: string; phone: string }) => Promise<void> | void;
