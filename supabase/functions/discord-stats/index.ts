@@ -36,17 +36,16 @@ serve(async (req) => {
 
   try {
     const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-    const DISCORD_STATS_CHANNEL_ID = Deno.env.get('DISCORD_STATS_CHANNEL_ID');
     
-    if (!DISCORD_BOT_TOKEN || !DISCORD_STATS_CHANNEL_ID) {
-      throw new Error('Missing Discord configuration (DISCORD_BOT_TOKEN or DISCORD_STATS_CHANNEL_ID)');
+    if (!DISCORD_BOT_TOKEN) {
+      throw new Error('Missing DISCORD_BOT_TOKEN');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer les statistiques
+    // Récupérer les statistiques et la config
     const [
       { count: totalVisits },
       { data: lastVisit },
@@ -66,6 +65,12 @@ serve(async (req) => {
       supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'rejected'),
       supabase.from('stats_config').select('*').eq('id', 'main').single()
     ]);
+
+    // Utiliser le channel_id stocké en base de données
+    const channelId = statsConfig?.stats_channel_id;
+    if (!channelId) {
+      throw new Error('Missing stats_channel_id in config. Please set it in the database.');
+    }
 
     const now = new Date();
     const startedAt = statsConfig?.started_at ? new Date(statsConfig.started_at) : now;
@@ -125,7 +130,7 @@ serve(async (req) => {
     if (messageId) {
       // Éditer le message existant
       const response = await fetch(
-        `https://discord.com/api/v10/channels/${DISCORD_STATS_CHANNEL_ID}/messages/${messageId}`,
+        `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
         {
           method: 'PATCH',
           headers: {
@@ -150,7 +155,7 @@ serve(async (req) => {
     if (!messageId) {
       // Créer un nouveau message
       const response = await fetch(
-        `https://discord.com/api/v10/channels/${DISCORD_STATS_CHANNEL_ID}/messages`,
+        `https://discord.com/api/v10/channels/${channelId}/messages`,
         {
           method: 'POST',
           headers: {
@@ -165,12 +170,11 @@ serve(async (req) => {
         const data = await response.json();
         messageId = data.id;
 
-        // Sauvegarder l'ID du message
+        // Sauvegarder l'ID du message (sans écraser le channel_id)
         await supabase
           .from('stats_config')
           .update({ 
             stats_message_id: messageId,
-            stats_channel_id: DISCORD_STATS_CHANNEL_ID,
             last_update: now.toISOString()
           })
           .eq('id', 'main');
