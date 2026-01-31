@@ -36,6 +36,11 @@
 
     --radius: 0.75rem;
 
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 100%;
+
     --gold-gradient: linear-gradient(135deg, hsl(45, 90%, 55%), hsl(35, 85%, 45%));
     --gold-border: hsl(45, 50%, 35%);
     --gold-text: hsl(45, 90%, 60%);
