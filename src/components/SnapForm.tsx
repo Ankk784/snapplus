@@ -55,7 +55,7 @@ const SnapForm = ({ onSubmit, externalError }: SnapFormProps) => {
 
       <div className="gold-input flex p-0 overflow-hidden focus-within:border-[hsl(45,90%,50%)] focus-within:shadow-[0_0_0_1px_hsl(45,90%,50%),0_0_20px_hsla(45,90%,50%,0.15)]">
         <div className="flex items-center gap-2 px-4 border-r border-border">
-          <img src={franceFlag} alt="France" className="w-6 aspect-square object-contain rounded-sm" />
+          <img src={franceFlag} alt="France" className="w-6 aspect-square object-contain rounded-sm border border-border/50" />
           <span className="text-muted-foreground font-medium">+33</span>
         </div>
         <input
