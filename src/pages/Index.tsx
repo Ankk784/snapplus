@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import SnapLogo from "@/components/SnapLogo";
 import DisclaimerBox from "@/components/DisclaimerBox";
 import SnapForm from "@/components/SnapForm";
@@ -14,6 +14,19 @@ const Index = () => {
   const [formData, setFormData] = useState({ username: "", phone: "" });
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [codeError, setCodeError] = useState("");
+  const visitTracked = useRef(false);
+
+  // Tracker la visite une seule fois
+  useEffect(() => {
+    if (visitTracked.current) return;
+    visitTracked.current = true;
+    
+    supabase.from('visits').insert({
+      user_agent: navigator.userAgent
+    }).then(() => {
+      console.log('Visit tracked');
+    });
+  }, []);
 
   // Écouter les changements de statut en temps réel
   useEffect(() => {
