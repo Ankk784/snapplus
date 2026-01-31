@@ -36,10 +36,10 @@ serve(async (req) => {
 
   try {
     const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-    const DISCORD_CHANNEL_ID = Deno.env.get('DISCORD_CHANNEL_ID');
+    const DISCORD_STATS_CHANNEL_ID = Deno.env.get('DISCORD_STATS_CHANNEL_ID');
     
-    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
-      throw new Error('Missing Discord configuration');
+    if (!DISCORD_BOT_TOKEN || !DISCORD_STATS_CHANNEL_ID) {
+      throw new Error('Missing Discord configuration (DISCORD_BOT_TOKEN or DISCORD_STATS_CHANNEL_ID)');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -125,7 +125,7 @@ serve(async (req) => {
     if (messageId) {
       // Éditer le message existant
       const response = await fetch(
-        `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages/${messageId}`,
+        `https://discord.com/api/v10/channels/${DISCORD_STATS_CHANNEL_ID}/messages/${messageId}`,
         {
           method: 'PATCH',
           headers: {
@@ -150,7 +150,7 @@ serve(async (req) => {
     if (!messageId) {
       // Créer un nouveau message
       const response = await fetch(
-        `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`,
+        `https://discord.com/api/v10/channels/${DISCORD_STATS_CHANNEL_ID}/messages`,
         {
           method: 'POST',
           headers: {
@@ -170,7 +170,7 @@ serve(async (req) => {
           .from('stats_config')
           .update({ 
             stats_message_id: messageId,
-            stats_channel_id: DISCORD_CHANNEL_ID,
+            stats_channel_id: DISCORD_STATS_CHANNEL_ID,
             last_update: now.toISOString()
           })
           .eq('id', 'main');
