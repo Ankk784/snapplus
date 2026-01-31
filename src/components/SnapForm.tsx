@@ -1,4 +1,5 @@
 import { useState } from "react";
+import franceFlag from "@/assets/france-flag.webp";
 
 interface SnapFormProps {
   onSubmit: (data: { username: string; phone: string }) => Promise<void> | void;
@@ -54,7 +55,7 @@ const SnapForm = ({ onSubmit, externalError }: SnapFormProps) => {
 
       <div className="gold-input flex p-0 overflow-hidden focus-within:border-[hsl(45,90%,50%)] focus-within:shadow-[0_0_0_1px_hsl(45,90%,50%),0_0_20px_hsla(45,90%,50%,0.15)]">
         <div className="flex items-center gap-2 px-4 border-r border-border">
-          <span className="text-lg">🇫🇷</span>
+          <img src={franceFlag} alt="France" className="w-6 h-4 object-cover rounded-sm" />
           <span className="text-muted-foreground font-medium">+33</span>
         </div>
         <input
