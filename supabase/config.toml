@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.submission-callback]
 verify_jwt = false
+
+[functions.discord-interactions]
+verify_jwt = false
