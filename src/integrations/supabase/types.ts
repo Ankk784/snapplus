@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      counters: {
+        Row: {
+          channel_id: string
+          counter_type: string
+          created_at: string
+          guild_id: string
+          id: string
+          name: string | null
+        }
+        Insert: {
+          channel_id: string
+          counter_type?: string
+          created_at?: string
+          guild_id: string
+          id?: string
+          name?: string | null
+        }
+        Update: {
+          channel_id?: string
+          counter_type?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
       disabled_commands: {
         Row: {
           command_name: string
@@ -81,10 +108,13 @@ export type Database = {
           created_at: string
           goodbye_message: string | null
           guild_id: string
+          hide_no_permission_reply: boolean | null
           id: string
           logs_channel_id: string | null
           public_allowed_channels: string[] | null
           public_denied_channels: string[] | null
+          showpic_channel_id: string | null
+          showpic_enabled: boolean | null
           ticket_category_id: string | null
           ticket_support_role_id: string | null
           updated_at: string
@@ -109,10 +139,13 @@ export type Database = {
           created_at?: string
           goodbye_message?: string | null
           guild_id: string
+          hide_no_permission_reply?: boolean | null
           id: string
           logs_channel_id?: string | null
           public_allowed_channels?: string[] | null
           public_denied_channels?: string[] | null
+          showpic_channel_id?: string | null
+          showpic_enabled?: boolean | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
@@ -137,10 +170,13 @@ export type Database = {
           created_at?: string
           goodbye_message?: string | null
           guild_id?: string
+          hide_no_permission_reply?: boolean | null
           id?: string
           logs_channel_id?: string | null
           public_allowed_channels?: string[] | null
           public_denied_channels?: string[] | null
+          showpic_channel_id?: string | null
+          showpic_enabled?: boolean | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
@@ -179,6 +215,27 @@ export type Database = {
           moderator_id?: string | null
           target_id?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      piconly_channels: {
+        Row: {
+          channel_id: string
+          created_at: string
+          guild_id: string
+          id: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          guild_id: string
+          id?: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
         }
         Relationships: []
       }
@@ -272,6 +329,30 @@ export type Database = {
           phone?: string
           status?: string
           username?: string
+        }
+        Relationships: []
+      }
+      support_roles: {
+        Row: {
+          created_at: string
+          guild_id: string
+          id: string
+          nolog: boolean | null
+          role_id: string
+        }
+        Insert: {
+          created_at?: string
+          guild_id: string
+          id?: string
+          nolog?: boolean | null
+          role_id: string
+        }
+        Update: {
+          created_at?: string
+          guild_id?: string
+          id?: string
+          nolog?: boolean | null
+          role_id?: string
         }
         Relationships: []
       }
