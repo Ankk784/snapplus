@@ -27,7 +27,7 @@ serve(async (req) => {
           {
             name: 'message',
             description: 'Le message à envoyer',
-            type: 3, // STRING type
+            type: 3, // STRING
             required: true
           }
         ]
@@ -35,6 +35,129 @@ serve(async (req) => {
       {
         name: 'stats',
         description: 'Affiche les statistiques en temps réel'
+      },
+      // --- MODERATION COMMANDS ---
+      {
+        name: 'ban',
+        description: 'Bannir un utilisateur du serveur',
+        default_member_permissions: '4', // BAN_MEMBERS
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à bannir', type: 6, required: true },
+          { name: 'raison', description: 'Raison du ban', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'unban',
+        description: 'Débannir un utilisateur',
+        default_member_permissions: '4',
+        options: [
+          { name: 'user_id', description: 'ID de l\'utilisateur à débannir', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'kick',
+        description: 'Expulser un utilisateur du serveur',
+        default_member_permissions: '2', // KICK_MEMBERS
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à expulser', type: 6, required: true },
+          { name: 'raison', description: 'Raison de l\'expulsion', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'mute',
+        description: 'Rendre muet un utilisateur (timeout)',
+        default_member_permissions: '1099511627776', // MODERATE_MEMBERS
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à mute', type: 6, required: true },
+          { name: 'duree', description: 'Durée (ex: 10m, 1h, 1d)', type: 3, required: true },
+          { name: 'raison', description: 'Raison du mute', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'unmute',
+        description: 'Retirer le mute d\'un utilisateur',
+        default_member_permissions: '1099511627776',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à unmute', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'clear',
+        description: 'Supprimer des messages dans le salon',
+        default_member_permissions: '8192', // MANAGE_MESSAGES
+        options: [
+          { name: 'nombre', description: 'Nombre de messages à supprimer (1-100)', type: 4, required: true },
+          { name: 'membre', description: 'Filtrer par utilisateur', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'lock',
+        description: 'Verrouiller un salon',
+        default_member_permissions: '16', // MANAGE_CHANNELS
+        options: [
+          { name: 'salon', description: 'Salon à verrouiller (défaut: actuel)', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'unlock',
+        description: 'Déverrouiller un salon',
+        default_member_permissions: '16',
+        options: [
+          { name: 'salon', description: 'Salon à déverrouiller (défaut: actuel)', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'addrole',
+        description: 'Ajouter un rôle à un membre',
+        default_member_permissions: '268435456', // MANAGE_ROLES
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true },
+          { name: 'role', description: 'Le rôle à ajouter', type: 8, required: true }
+        ]
+      },
+      {
+        name: 'delrole',
+        description: 'Retirer un rôle d\'un membre',
+        default_member_permissions: '268435456',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true },
+          { name: 'role', description: 'Le rôle à retirer', type: 8, required: true }
+        ]
+      },
+      {
+        name: 'sanctions',
+        description: 'Voir les sanctions d\'un utilisateur',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'banlist',
+        description: 'Voir la liste des utilisateurs bannis',
+        default_member_permissions: '4'
+      },
+      {
+        name: 'mutelist',
+        description: 'Voir la liste des utilisateurs en timeout',
+        default_member_permissions: '1099511627776'
+      },
+      {
+        name: 'warn',
+        description: 'Avertir un utilisateur',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à avertir', type: 6, required: true },
+          { name: 'raison', description: 'Raison de l\'avertissement', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'sanctions-clear',
+        description: 'Supprimer les sanctions d\'un membre',
+        default_member_permissions: '8', // ADMINISTRATOR
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true }
+        ]
       }
     ];
 
