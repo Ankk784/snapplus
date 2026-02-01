@@ -9,9 +9,9 @@ const corsHeaders = {
 
 // Price ID to plan type mapping
 const PRICE_TO_PLAN: Record<string, { plan: string; days: number | null }> = {
-  "price_1Sw28LDjzCKUlNssSDiXSoC5": { plan: "standard", days: 30 },
-  "price_1Sw28bDjzCKUlNssT6OG8h18": { plan: "premium", days: 90 },
-  "price_1Sw28qDjzCKUlNssNbTClXyy": { plan: "lifetime", days: null },
+  "price_1Sw3dmDv7QD9qcNwvYNM7S6W": { plan: "standard", days: 30 },
+  "price_1Sw3dxDv7QD9qcNwFVEfI5Yi": { plan: "premium", days: 90 },
+  "price_1Sw3e8Dv7QD9qcNwL9lGVGas": { plan: "lifetime", days: null },
 };
 
 function generateLicenseKey(): string {

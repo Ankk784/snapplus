@@ -1715,9 +1715,9 @@ async function requireLicense(supabase: any, guildId: string): Promise<Response 
 
 // Stripe price IDs
 const STRIPE_PRICES = {
-  standard: { id: 'price_1Sw28LDjzCKUlNssSDiXSoC5', name: 'Standard', duration: '30 jours', price: '5€' },
-  premium: { id: 'price_1Sw28bDjzCKUlNssT6OG8h18', name: 'Premium', duration: '90 jours', price: '12€' },
-  lifetime: { id: 'price_1Sw28qDjzCKUlNssNbTClXyy', name: 'Lifetime', duration: 'À vie', price: '25€' }
+  standard: { id: 'price_1Sw3dmDv7QD9qcNwvYNM7S6W', name: 'Standard', duration: '30 jours', price: '5€' },
+  premium: { id: 'price_1Sw3dxDv7QD9qcNwFVEfI5Yi', name: 'Premium', duration: '90 jours', price: '12€' },
+  lifetime: { id: 'price_1Sw3e8Dv7QD9qcNwL9lGVGas', name: 'Lifetime', duration: 'À vie', price: '25€' }
 };
 
 // Buy command - create Stripe payment links
