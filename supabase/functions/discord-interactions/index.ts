@@ -529,7 +529,7 @@ function handleHelp(interaction: any) {
       "**📝 Notes & Logs**\n" +
       "`/note` `/notes` `/setlogs` `/setwelcome`\n\n" +
       "**🛡️ Protection**\n" +
-      "`/antiraid` `/captcha`\n\n" +
+      "`/antiraid` `/captcha` `/antilink`\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
@@ -1233,6 +1233,24 @@ async function handleCaptcha(interaction: any, supabase: any) {
   return publicMsg(`🔒 Captcha **désactivé**.`);
 }
 
+// Antilink config
+async function handleAntilink(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const enabled = getOption(interaction.data.options, 'activer') as boolean;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    antilink_enabled: enabled,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (enabled) {
+    return publicMsg(`🔗 Anti-lien **activé**. Les liens d'invitation Discord seront supprimés automatiquement.`);
+  }
+  return publicMsg(`🔗 Anti-lien **désactivé**.`);
+}
+
 // Ticket config
 async function handleTicketConfig(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
@@ -1396,6 +1414,7 @@ serve(async (req) => {
         case 'setwelcome': return handleSetWelcome(interaction, supabase);
         case 'antiraid': return handleAntiraid(interaction, supabase);
         case 'captcha': return handleCaptcha(interaction, supabase);
+        case 'antilink': return handleAntilink(interaction, supabase);
 
         // Utility commands
         case 'avatar': return handleAvatar(interaction);

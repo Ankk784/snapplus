@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       guild_config: {
         Row: {
+          antilink_enabled: boolean | null
           antiraid_enabled: boolean | null
           antiraid_max_joins: number | null
           antiraid_timeframe: number | null
@@ -34,6 +35,7 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          antilink_enabled?: boolean | null
           antiraid_enabled?: boolean | null
           antiraid_max_joins?: number | null
           antiraid_timeframe?: number | null
@@ -52,6 +54,7 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          antilink_enabled?: boolean | null
           antiraid_enabled?: boolean | null
           antiraid_max_joins?: number | null
           antiraid_timeframe?: number | null
