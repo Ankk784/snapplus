@@ -2331,6 +2331,15 @@ serve(async (req) => {
   if (interaction.type === INTERACTION_TYPE.APPLICATION_COMMAND) {
     const cmd = interaction.data.name;
 
+    // Commands that don't require license
+    const freeCmds = ['license', 'help', 'ping'];
+    
+    // Check license for all other commands
+    if (!freeCmds.includes(cmd)) {
+      const licenseCheck = await requireLicense(supabase, interaction.guild_id);
+      if (licenseCheck) return licenseCheck;
+    }
+
     try {
       switch (cmd) {
         case 'help':
@@ -2410,22 +2419,10 @@ serve(async (req) => {
         // License command (always available)
         case 'license': return handleLicense(interaction, supabase);
 
-        // Owner/Buyer commands (require license)
-        case 'buyer': {
-          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
-          if (licenseCheck) return licenseCheck;
-          return handleBuyer(interaction, supabase);
-        }
-        case 'unbuyer': {
-          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
-          if (licenseCheck) return licenseCheck;
-          return handleUnbuyer(interaction, supabase);
-        }
-        case 'change': {
-          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
-          if (licenseCheck) return licenseCheck;
-          return handleChange(interaction, supabase);
-        }
+        // Owner/Buyer commands
+        case 'buyer': return handleBuyer(interaction, supabase);
+        case 'unbuyer': return handleUnbuyer(interaction, supabase);
+        case 'change': return handleChange(interaction, supabase);
         case 'listoff': return handleListoff(interaction, supabase);
 
         // Advanced config commands
