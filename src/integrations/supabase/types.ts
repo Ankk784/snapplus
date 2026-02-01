@@ -74,6 +74,30 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_owners: {
+        Row: {
+          added_by: string
+          created_at: string
+          guild_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          guild_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       counters: {
         Row: {
           channel_id: string

@@ -538,7 +538,8 @@ function handleHelp(interaction: any) {
       "`/counter` `/hidereply` `/showpic`\n" +
       "`/soutien` `/soutien-nolog` `/piconly`\n\n" +
       "**👑 Propriétaire**\n" +
-      "`/buyer` `/unbuyer` `/change` `/listoff`\n\n" +
+      "`/buyer` `/unbuyer` `/change` `/listoff`\n" +
+      "`/setowner` `/delowner`\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
@@ -2018,6 +2019,108 @@ async function handleListoff(interaction: any, supabase: any) {
   }]);
 }
 
+// Owner command - list or add owners
+async function handleSetowner(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
+  const targetId = getOption(interaction.data.options, 'membre') as string | undefined;
+
+  // Get guild info to check if user is the actual server owner
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+  
+  if (guild.owner_id !== modId) {
+    return ephemeral(`❌ Seul le propriétaire du serveur peut utiliser cette commande.`);
+  }
+
+  if (!targetId) {
+    // List owners
+    const { data: owners } = await supabase
+      .from('bot_owners')
+      .select('*')
+      .eq('guild_id', guildId)
+      .order('created_at', { ascending: false });
+
+    if (!owners || owners.length === 0) {
+      return ephemeral(`📋 Aucun owner configuré sur ce serveur.\nLe propriétaire du serveur (<@${guild.owner_id}>) a automatiquement les permissions owner.`);
+    }
+
+    const ownerList = owners.map((o: any, i: number) => {
+      const date = new Date(o.created_at).toLocaleDateString('fr-FR');
+      return `**${i + 1}.** <@${o.user_id}> - Ajouté le ${date}`;
+    }).join('\n');
+
+    return ephemeral('', [{
+      title: '👑 Liste des Owners',
+      description: `**Propriétaire du serveur:** <@${guild.owner_id}>\n\n${ownerList}`,
+      color: 0xFFD700,
+      footer: { text: `Total: ${owners.length} owner(s) supplémentaire(s)` }
+    }]);
+  }
+
+  // Add owner
+  const { error } = await supabase.from('bot_owners').insert({
+    guild_id: guildId,
+    user_id: targetId,
+    added_by: modId
+  });
+
+  if (error && error.code === '23505') {
+    return ephemeral(`❌ <@${targetId}> est déjà un owner.`);
+  }
+
+  return publicMsg(`✅ <@${targetId}> a été ajouté comme **owner** du bot.`);
+}
+
+// Delowner command
+async function handleDelowner(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
+  const targetId = getOption(interaction.data.options, 'membre') as string;
+
+  // Get guild info to check if user is the actual server owner
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+  
+  if (guild.owner_id !== modId) {
+    return ephemeral(`❌ Seul le propriétaire du serveur peut utiliser cette commande.`);
+  }
+
+  const { data, error } = await supabase
+    .from('bot_owners')
+    .delete()
+    .eq('guild_id', guildId)
+    .eq('user_id', targetId)
+    .select();
+
+  if (!data || data.length === 0) {
+    return ephemeral(`❌ <@${targetId}> n'est pas un owner.`);
+  }
+
+  return publicMsg(`✅ <@${targetId}> a été retiré des owners.`);
+}
+
+// Check if user is owner (server owner or added as bot owner)
+async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
+  // Check if server owner
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+  
+  if (guild.owner_id === userId) {
+    return true;
+  }
+  
+  // Check if added as bot owner
+  const { data } = await supabase
+    .from('bot_owners')
+    .select('id')
+    .eq('guild_id', guildId)
+    .eq('user_id', userId)
+    .single();
+  
+  return !!data;
+}
+
 // Check if command is disabled
 async function isCommandDisabled(supabase: any, guildId: string, commandName: string): Promise<boolean> {
   const { data } = await supabase
@@ -2599,6 +2702,8 @@ serve(async (req) => {
         case 'unbuyer': return handleUnbuyer(interaction, supabase);
         case 'change': return handleChange(interaction, supabase);
         case 'listoff': return handleListoff(interaction, supabase);
+        case 'setowner': return handleSetowner(interaction, supabase);
+        case 'delowner': return handleDelowner(interaction, supabase);
 
         // Advanced config commands
         case 'counter': return handleCounter(interaction, supabase);
