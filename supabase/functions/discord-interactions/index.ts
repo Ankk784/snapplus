@@ -522,11 +522,16 @@ function handleHelp(interaction: any) {
       "`/sanctions` `/sanctions-clear` `/banlist` `/mutelist`\n\n" +
       "**⚙️ Gestion du serveur**\n" +
       "`/massiverole` `/unmassiverole` `/renew` `/embed`\n" +
-      "`/bringall` `/serverinfo` `/userinfo` `/roleinfo`\n\n" +
+      "`/bringall` `/serverinfo` `/userinfo` `/roleinfo`\n" +
+      "`/slowmode` `/temprole` `/announce`\n\n" +
+      "**🎫 Tickets**\n" +
+      "`/ticket` `/close` `/add` `/remove` `/ticketconfig`\n\n" +
+      "**📝 Notes & Logs**\n" +
+      "`/note` `/notes` `/setlogs` `/setwelcome`\n\n" +
+      "**🛡️ Protection**\n" +
+      "`/antiraid` `/captcha`\n\n" +
       "**🔧 Utilitaires**\n" +
-      "`/say` `/stats` `/help`\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-      "Utilisez `/help <commande>` pour plus de détails.",
+      "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
     footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
     timestamp: new Date().toISOString()
@@ -865,6 +870,438 @@ async function handleStats(interaction: any, supabase: any) {
   }), { headers: { 'Content-Type': 'application/json' } });
 }
 
+// ==================== NEW COMMANDS ====================
+
+// Slowmode command
+async function handleSlowmode(interaction: any) {
+  const duration = getOption(interaction.data.options, 'duree') as number;
+  const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
+
+  if (duration < 0 || duration > 21600) {
+    return ephemeral(`❌ Durée invalide (0-21600 secondes).`);
+  }
+
+  const res = await discordFetch(`/channels/${channelId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rate_limit_per_user: duration })
+  });
+
+  if (!res.ok) {
+    return ephemeral(`❌ Impossible de modifier le slowmode.`);
+  }
+
+  if (duration === 0) {
+    return publicMsg(`⏱️ Slowmode désactivé dans <#${channelId}>.`);
+  }
+  return publicMsg(`⏱️ Slowmode défini à **${duration}s** dans <#${channelId}>.`);
+}
+
+// Temprole command
+async function handleTemprole(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const memberId = getOption(interaction.data.options, 'membre') as string;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+  const durationStr = getOption(interaction.data.options, 'duree') as string;
+
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    return ephemeral(`❌ Durée invalide. Format: 1h, 1d, 7d`);
+  }
+
+  // Add role
+  const res = await discordFetch(`/guilds/${guildId}/members/${memberId}/roles/${roleId}`, { method: 'PUT' });
+  if (!res.ok) {
+    return ephemeral(`❌ Impossible d'ajouter le rôle.`);
+  }
+
+  const expiresAt = new Date(Date.now() + durationMs);
+  
+  // Save to database
+  await supabase.from('temp_roles').insert({
+    guild_id: guildId,
+    user_id: memberId,
+    role_id: roleId,
+    expires_at: expiresAt.toISOString()
+  });
+
+  return publicMsg(`✅ Le rôle <@&${roleId}> a été ajouté à <@${memberId}> pour **${formatDuration(durationMs)}**.`);
+}
+
+// Note command
+async function handleNote(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
+  const targetId = getOption(interaction.data.options, 'membre') as string;
+  const note = getOption(interaction.data.options, 'note') as string;
+
+  await supabase.from('user_notes').insert({
+    guild_id: guildId,
+    user_id: targetId,
+    moderator_id: modId,
+    note
+  });
+
+  return ephemeral(`📝 Note ajoutée pour <@${targetId}>.`);
+}
+
+// Notes command
+async function handleNotes(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const targetId = getOption(interaction.data.options, 'membre') as string;
+
+  const { data: notes } = await supabase
+    .from('user_notes')
+    .select('*')
+    .eq('guild_id', guildId)
+    .eq('user_id', targetId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (!notes || notes.length === 0) {
+    return ephemeral(`📝 Aucune note pour <@${targetId}>.`);
+  }
+
+  const noteList = notes.map((n: any, i: number) => {
+    const date = new Date(n.created_at).toLocaleDateString('fr-FR');
+    return `**${i + 1}.** ${date} par <@${n.moderator_id}>\n   └ ${n.note}`;
+  }).join('\n\n');
+
+  return ephemeral('', [{
+    title: `📝 Notes sur l'utilisateur`,
+    description: noteList,
+    color: 0x2B2D31,
+    footer: { text: `Total: ${notes.length} note(s)` }
+  }]);
+}
+
+// Announce command
+async function handleAnnounce(interaction: any) {
+  const title = getOption(interaction.data.options, 'titre') as string;
+  const message = getOption(interaction.data.options, 'message') as string;
+  const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
+  const mention = getOption(interaction.data.options, 'mention') as boolean || false;
+
+  const embed = {
+    title: `📢 ${title}`,
+    description: message,
+    color: 0x3B82F6,
+    timestamp: new Date().toISOString(),
+    footer: { text: `Annonce par ${interaction.member.user.username}` }
+  };
+
+  const content = mention ? '@everyone' : '';
+
+  await discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content, embeds: [embed] })
+  });
+
+  return ephemeral(`✅ Annonce envoyée dans <#${channelId}>.`);
+}
+
+// Ticket command
+async function handleTicket(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const userId = interaction.member.user.id;
+  const subject = getOption(interaction.data.options, 'sujet') as string || 'Support';
+
+  // Get guild config for category
+  const { data: config } = await supabase
+    .from('guild_config')
+    .select('ticket_category_id, ticket_support_role_id')
+    .eq('guild_id', guildId)
+    .single();
+
+  // Create channel
+  const channelName = `ticket-${interaction.member.user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  
+  const permissionOverwrites = [
+    { id: guildId, type: 0, deny: '1024' }, // @everyone can't see
+    { id: userId, type: 1, allow: '1024' }  // User can see
+  ];
+
+  if (config?.ticket_support_role_id) {
+    permissionOverwrites.push({ id: config.ticket_support_role_id, type: 0, allow: '1024' });
+  }
+
+  const createRes = await discordFetch(`/guilds/${guildId}/channels`, {
+    method: 'POST',
+    body: JSON.stringify({
+      name: channelName,
+      type: 0,
+      parent_id: config?.ticket_category_id || null,
+      permission_overwrites: permissionOverwrites
+    })
+  });
+
+  if (!createRes.ok) {
+    return ephemeral(`❌ Impossible de créer le ticket.`);
+  }
+
+  const channel = await createRes.json();
+
+  // Save to database
+  await supabase.from('tickets').insert({
+    guild_id: guildId,
+    channel_id: channel.id,
+    user_id: userId,
+    created_by: userId,
+    subject,
+    status: 'open'
+  });
+
+  // Send welcome message in ticket
+  await discordFetch(`/channels/${channel.id}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({
+      content: `<@${userId}>`,
+      embeds: [{
+        title: '🎫 Ticket Ouvert',
+        description: `Bienvenue dans votre ticket !\n\n**Sujet:** ${subject}\n\nUn membre du support vous répondra bientôt.\nUtilisez \`/close\` pour fermer ce ticket.`,
+        color: 0x22C55E,
+        timestamp: new Date().toISOString()
+      }]
+    })
+  });
+
+  return ephemeral(`✅ Votre ticket a été créé: <#${channel.id}>`);
+}
+
+// Close ticket command
+async function handleClose(interaction: any, supabase: any) {
+  const channelId = interaction.channel_id;
+  const closedBy = interaction.member.user.id;
+  const reason = getOption(interaction.data.options, 'raison') as string || 'Aucune raison';
+
+  // Check if this is a ticket channel
+  const { data: ticket } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('channel_id', channelId)
+    .single();
+
+  if (!ticket) {
+    return ephemeral(`❌ Ce salon n'est pas un ticket.`);
+  }
+
+  // Update database
+  await supabase.from('tickets').update({
+    status: 'closed',
+    closed_at: new Date().toISOString(),
+    closed_by: closedBy
+  }).eq('channel_id', channelId);
+
+  // Send closing message
+  await discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({
+      embeds: [{
+        title: '🎫 Ticket Fermé',
+        description: `Ce ticket a été fermé par <@${closedBy}>.\n\n**Raison:** ${reason}\n\nLe salon sera supprimé dans 5 secondes.`,
+        color: 0xEF4444,
+        timestamp: new Date().toISOString()
+      }]
+    })
+  });
+
+  // Delete channel after delay
+  setTimeout(async () => {
+    await discordFetch(`/channels/${channelId}`, { method: 'DELETE' });
+  }, 5000);
+
+  return ephemeral(`✅ Ticket fermé.`);
+}
+
+// Add user to ticket
+async function handleAddToTicket(interaction: any, supabase: any) {
+  const channelId = interaction.channel_id;
+  const memberId = getOption(interaction.data.options, 'membre') as string;
+
+  // Check if this is a ticket channel
+  const { data: ticket } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('channel_id', channelId)
+    .single();
+
+  if (!ticket) {
+    return ephemeral(`❌ Ce salon n'est pas un ticket.`);
+  }
+
+  // Add permission for user
+  await discordFetch(`/channels/${channelId}/permissions/${memberId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ type: 1, allow: '1024' })
+  });
+
+  return publicMsg(`✅ <@${memberId}> a été ajouté au ticket.`);
+}
+
+// Remove user from ticket
+async function handleRemoveFromTicket(interaction: any, supabase: any) {
+  const channelId = interaction.channel_id;
+  const memberId = getOption(interaction.data.options, 'membre') as string;
+
+  const { data: ticket } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('channel_id', channelId)
+    .single();
+
+  if (!ticket) {
+    return ephemeral(`❌ Ce salon n'est pas un ticket.`);
+  }
+
+  await discordFetch(`/channels/${channelId}/permissions/${memberId}`, { method: 'DELETE' });
+
+  return publicMsg(`✅ <@${memberId}> a été retiré du ticket.`);
+}
+
+// Set logs channel
+async function handleSetLogs(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    logs_channel_id: channelId,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  return publicMsg(`✅ Salon des logs défini sur <#${channelId}>.`);
+}
+
+// Set welcome channel
+async function handleSetWelcome(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+  const message = getOption(interaction.data.options, 'message') as string || 'Bienvenue {user} sur **{server}** ! 🎉';
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    welcome_channel_id: channelId,
+    welcome_message: message,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  return publicMsg(`✅ Salon de bienvenue défini sur <#${channelId}>.`);
+}
+
+// Antiraid config
+async function handleAntiraid(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const enabled = getOption(interaction.data.options, 'activer') as boolean;
+  const maxJoins = getOption(interaction.data.options, 'max_joins') as number || 10;
+  const timeframe = getOption(interaction.data.options, 'secondes') as number || 60;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    antiraid_enabled: enabled,
+    antiraid_max_joins: maxJoins,
+    antiraid_timeframe: timeframe,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (enabled) {
+    return publicMsg(`🛡️ Anti-raid **activé**. Max ${maxJoins} joins en ${timeframe}s.`);
+  }
+  return publicMsg(`🛡️ Anti-raid **désactivé**.`);
+}
+
+// Captcha config
+async function handleCaptcha(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const enabled = getOption(interaction.data.options, 'activer') as boolean;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    captcha_enabled: enabled,
+    captcha_channel_id: channelId || null,
+    captcha_role_id: roleId || null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (enabled) {
+    return publicMsg(`🔒 Captcha **activé**.${channelId ? ` Salon: <#${channelId}>` : ''}${roleId ? ` Rôle: <@&${roleId}>` : ''}`);
+  }
+  return publicMsg(`🔒 Captcha **désactivé**.`);
+}
+
+// Ticket config
+async function handleTicketConfig(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const categoryId = getOption(interaction.data.options, 'categorie') as string;
+  const roleId = getOption(interaction.data.options, 'role_support') as string;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    ticket_category_id: categoryId,
+    ticket_support_role_id: roleId || null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  return publicMsg(`✅ Configuration tickets sauvegardée.${roleId ? ` Support: <@&${roleId}>` : ''}`);
+}
+
+// Avatar command
+async function handleAvatar(interaction: any) {
+  const targetId = getOption(interaction.data.options, 'membre') as string || interaction.member.user.id;
+
+  const userRes = await discordFetch(`/users/${targetId}`);
+  const user = await userRes.json();
+
+  if (!user.avatar) {
+    return ephemeral(`❌ Cet utilisateur n'a pas d'avatar.`);
+  }
+
+  const avatarUrl = `https://cdn.discordapp.com/avatars/${targetId}/${user.avatar}.png?size=1024`;
+
+  return publicMsg('', [{
+    title: `🖼️ Avatar de ${user.username}`,
+    image: { url: avatarUrl },
+    color: 0x2B2D31
+  }]);
+}
+
+// Banner command
+async function handleBanner(interaction: any) {
+  const targetId = getOption(interaction.data.options, 'membre') as string || interaction.member.user.id;
+
+  const userRes = await discordFetch(`/users/${targetId}`);
+  const user = await userRes.json();
+
+  if (!user.banner) {
+    return ephemeral(`❌ Cet utilisateur n'a pas de bannière.`);
+  }
+
+  const bannerUrl = `https://cdn.discordapp.com/banners/${targetId}/${user.banner}.png?size=1024`;
+
+  return publicMsg('', [{
+    title: `🖼️ Bannière de ${user.username}`,
+    image: { url: bannerUrl },
+    color: 0x2B2D31
+  }]);
+}
+
+// Ping command
+function handlePing(interaction: any) {
+  const start = Date.now();
+  const apiLatency = start - new Date(interaction.id.slice(0, -10)).getTime() / 4194.304;
+  
+  return publicMsg('', [{
+    title: '🏓 Pong!',
+    description: `**Latence API:** ~${Math.round(apiLatency)}ms`,
+    color: 0x22C55E
+  }]);
+}
+
 serve(async (req) => {
   const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
   
@@ -939,6 +1376,31 @@ serve(async (req) => {
         case 'userinfo': return handleUserinfo(interaction);
         case 'roleinfo': return handleRoleinfo(interaction);
         case 'bringall': return handleBringall(interaction);
+
+        // New commands
+        case 'slowmode': return handleSlowmode(interaction);
+        case 'temprole': return handleTemprole(interaction, supabase);
+        case 'note': return handleNote(interaction, supabase);
+        case 'notes': return handleNotes(interaction, supabase);
+        case 'announce': return handleAnnounce(interaction);
+
+        // Ticket commands
+        case 'ticket': return handleTicket(interaction, supabase);
+        case 'close': return handleClose(interaction, supabase);
+        case 'add': return handleAddToTicket(interaction, supabase);
+        case 'remove': return handleRemoveFromTicket(interaction, supabase);
+        case 'ticketconfig': return handleTicketConfig(interaction, supabase);
+
+        // Configuration commands
+        case 'setlogs': return handleSetLogs(interaction, supabase);
+        case 'setwelcome': return handleSetWelcome(interaction, supabase);
+        case 'antiraid': return handleAntiraid(interaction, supabase);
+        case 'captcha': return handleCaptcha(interaction, supabase);
+
+        // Utility commands
+        case 'avatar': return handleAvatar(interaction);
+        case 'banner': return handleBanner(interaction);
+        case 'ping': return handlePing(interaction);
 
         default:
           return ephemeral("❌ Commande inconnue.");
