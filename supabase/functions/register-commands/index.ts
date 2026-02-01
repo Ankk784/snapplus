@@ -341,6 +341,14 @@ serve(async (req) => {
         ]
       },
       {
+        name: 'antilink',
+        description: 'Activer/désactiver la suppression des liens d\'invitation Discord',
+        default_member_permissions: '8',
+        options: [
+          { name: 'activer', description: 'Activer ou désactiver', type: 5, required: true }
+        ]
+      },
+      {
         name: 'ticketconfig',
         description: 'Configurer le système de tickets',
         default_member_permissions: '8',
