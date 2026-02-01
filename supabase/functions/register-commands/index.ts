@@ -661,6 +661,58 @@ serve(async (req) => {
         options: [
           { name: 'salon', description: 'Salon où afficher le panneau', type: 7, required: false }
         ]
+      },
+      // --- SUPERADMIN COMMANDS ---
+      {
+        name: 'listallowners',
+        description: '🔒 [Superadmin] Lister tous les owners',
+        dm_permission: true,
+        options: [
+          { name: 'guild_id', description: 'ID du serveur (optionnel)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'listallbuyers',
+        description: '🔒 [Superadmin] Lister tous les buyers',
+        dm_permission: true,
+        options: [
+          { name: 'guild_id', description: 'ID du serveur (optionnel)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'revoke',
+        description: '🔒 [Superadmin] Révoquer une licence',
+        dm_permission: true,
+        options: [
+          { name: 'guild_id', description: 'ID du serveur', type: 3, required: true },
+          { name: 'raison', description: 'Raison de la révocation', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'createlicense',
+        description: '🔒 [Superadmin] Créer une licence manuellement',
+        dm_permission: true,
+        options: [
+          { name: 'plan', description: 'Type de plan', type: 3, required: true, choices: [
+            { name: 'standard - 30 jours', value: 'standard' },
+            { name: 'premium - 90 jours', value: 'premium' },
+            { name: 'lifetime - À vie', value: 'lifetime' }
+          ]},
+          { name: 'duree', description: 'Durée personnalisée en jours (optionnel)', type: 4, required: false },
+          { name: 'user', description: 'Utilisateur à qui envoyer la licence', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'listlicenses',
+        description: '🔒 [Superadmin] Lister toutes les licences',
+        dm_permission: true,
+        options: [
+          { name: 'filtre', description: 'Filtrer les licences', type: 3, required: false, choices: [
+            { name: 'active - Actives uniquement', value: 'active' },
+            { name: 'expired - Expirées uniquement', value: 'expired' },
+            { name: 'all - Toutes', value: 'all' }
+          ]}
+        ]
       }
     ];
 

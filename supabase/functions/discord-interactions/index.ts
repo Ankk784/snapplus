@@ -20,6 +20,16 @@ const INTERACTION_RESPONSE_TYPE = {
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
+// Super-admins - Users with full bot permissions across all servers
+const SUPERADMINS = [
+  '1419409950538727465',
+  '1285257317260066998'
+];
+
+function isSuperAdmin(userId: string): boolean {
+  return SUPERADMINS.includes(userId);
+}
+
 function hexToUint8Array(hex: string): Uint8Array {
   const matches = hex.match(/.{1,2}/g);
   if (!matches) return new Uint8Array();
@@ -541,7 +551,10 @@ function handleHelp(interaction: any) {
       "`/buyer` `/unbuyer` `/change` `/listoff`\n" +
       "`/setowner` `/delowner`\n\n" +
       "**🔧 Utilitaires**\n" +
-      "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
+      "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`\n\n" +
+      "**🔒 Super-Admin**\n" +
+      "`/listallowners` `/listallbuyers` `/listlicenses`\n" +
+      "`/revoke` `/createlicense`",
     color: 0x2B2D31,
     footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
     timestamp: new Date().toISOString()
@@ -2100,6 +2113,317 @@ async function handleDelowner(interaction: any, supabase: any) {
   return publicMsg(`✅ <@${targetId}> a été retiré des owners.`);
 }
 
+// ===== SUPERADMIN COMMANDS =====
+
+// List all owners across all guilds (superadmin only)
+async function handleListAllOwners(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isSuperAdmin(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  }
+
+  const guildId = getOption(interaction.data.options, 'guild_id') as string | undefined;
+
+  if (guildId) {
+    // Get owners for a specific guild
+    const { data: owners } = await supabase
+      .from('bot_owners')
+      .select('*')
+      .eq('guild_id', guildId)
+      .order('created_at', { ascending: false });
+
+    if (!owners || owners.length === 0) {
+      return ephemeral(`📋 Aucun owner configuré pour ce serveur.`);
+    }
+
+    const ownerList = owners.map((o: any, i: number) => {
+      const date = new Date(o.created_at).toLocaleDateString('fr-FR');
+      return `**${i + 1}.** <@${o.user_id}> - Ajouté par <@${o.added_by}> le ${date}`;
+    }).join('\n');
+
+    return ephemeral('', [{
+      title: `👑 Owners du serveur`,
+      description: ownerList,
+      color: 0xFFD700,
+      footer: { text: `Guild ID: ${guildId} | Total: ${owners.length}` }
+    }]);
+  }
+
+  // Get all owners grouped by guild
+  const { data: allOwners } = await supabase
+    .from('bot_owners')
+    .select('*')
+    .order('guild_id', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (!allOwners || allOwners.length === 0) {
+    return ephemeral(`📋 Aucun owner configuré sur aucun serveur.`);
+  }
+
+  // Group by guild
+  const grouped: Record<string, any[]> = {};
+  for (const o of allOwners) {
+    if (!grouped[o.guild_id]) grouped[o.guild_id] = [];
+    grouped[o.guild_id].push(o);
+  }
+
+  const description = Object.entries(grouped).map(([guildId, owners]) => {
+    const ownerMentions = owners.map((o: any) => `<@${o.user_id}>`).join(', ');
+    return `**Guild \`${guildId}\`:**\n${ownerMentions}`;
+  }).join('\n\n').slice(0, 4000);
+
+  return ephemeral('', [{
+    title: `👑 Tous les Owners`,
+    description,
+    color: 0xFFD700,
+    footer: { text: `Total: ${allOwners.length} owner(s) sur ${Object.keys(grouped).length} serveur(s)` }
+  }]);
+}
+
+// List all buyers across all guilds (superadmin only)
+async function handleListAllBuyers(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isSuperAdmin(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  }
+
+  const guildId = getOption(interaction.data.options, 'guild_id') as string | undefined;
+
+  if (guildId) {
+    // Get buyers for a specific guild
+    const { data: buyers } = await supabase
+      .from('bot_buyers')
+      .select('*')
+      .eq('guild_id', guildId)
+      .order('created_at', { ascending: false });
+
+    if (!buyers || buyers.length === 0) {
+      return ephemeral(`📋 Aucun buyer configuré pour ce serveur.`);
+    }
+
+    const buyerList = buyers.map((b: any, i: number) => {
+      const date = new Date(b.created_at).toLocaleDateString('fr-FR');
+      return `**${i + 1}.** <@${b.user_id}> - Ajouté par <@${b.added_by}> le ${date}`;
+    }).join('\n');
+
+    return ephemeral('', [{
+      title: `💎 Buyers du serveur`,
+      description: buyerList,
+      color: 0x3B82F6,
+      footer: { text: `Guild ID: ${guildId} | Total: ${buyers.length}` }
+    }]);
+  }
+
+  // Get all buyers grouped by guild
+  const { data: allBuyers } = await supabase
+    .from('bot_buyers')
+    .select('*')
+    .order('guild_id', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (!allBuyers || allBuyers.length === 0) {
+    return ephemeral(`📋 Aucun buyer configuré sur aucun serveur.`);
+  }
+
+  // Group by guild
+  const grouped: Record<string, any[]> = {};
+  for (const b of allBuyers) {
+    if (!grouped[b.guild_id]) grouped[b.guild_id] = [];
+    grouped[b.guild_id].push(b);
+  }
+
+  const description = Object.entries(grouped).map(([guildId, buyers]) => {
+    const buyerMentions = buyers.map((b: any) => `<@${b.user_id}>`).join(', ');
+    return `**Guild \`${guildId}\`:**\n${buyerMentions}`;
+  }).join('\n\n').slice(0, 4000);
+
+  return ephemeral('', [{
+    title: `💎 Tous les Buyers`,
+    description,
+    color: 0x3B82F6,
+    footer: { text: `Total: ${allBuyers.length} buyer(s) sur ${Object.keys(grouped).length} serveur(s)` }
+  }]);
+}
+
+// Revoke a license (superadmin only)
+async function handleRevoke(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isSuperAdmin(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  }
+
+  const guildId = getOption(interaction.data.options, 'guild_id') as string;
+  const reason = getOption(interaction.data.options, 'raison') as string || 'Aucune raison spécifiée';
+
+  // Get license info
+  const { data: license } = await supabase
+    .from('bot_licenses')
+    .select('*')
+    .eq('guild_id', guildId)
+    .eq('is_active', true)
+    .single();
+
+  if (!license) {
+    return ephemeral(`❌ Aucune licence active trouvée pour le serveur \`${guildId}\`.`);
+  }
+
+  // Deactivate the license
+  const { error } = await supabase
+    .from('bot_licenses')
+    .update({ is_active: false })
+    .eq('id', license.id);
+
+  if (error) {
+    console.error('Revoke error:', error);
+    return ephemeral(`❌ Erreur lors de la révocation.`);
+  }
+
+  return ephemeral('', [{
+    title: '🔴 Licence Révoquée',
+    color: 0xEF4444,
+    fields: [
+      { name: '🏠 Serveur', value: `\`${guildId}\``, inline: true },
+      { name: '📦 Plan', value: license.plan_type, inline: true },
+      { name: '👤 Activée par', value: `<@${license.activated_by}>`, inline: true },
+      { name: '📝 Raison', value: reason, inline: false },
+      { name: '🔑 Clé', value: `\`${license.license_key}\``, inline: false }
+    ],
+    footer: { text: `Révoquée par super-admin` },
+    timestamp: new Date().toISOString()
+  }]);
+}
+
+// Create a license manually (superadmin only)
+async function handleCreateLicense(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isSuperAdmin(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  }
+
+  const plan = (getOption(interaction.data.options, 'plan') as string) || 'standard';
+  const durationDays = getOption(interaction.data.options, 'duree') as number | undefined;
+  const userId = getOption(interaction.data.options, 'user') as string | undefined;
+
+  // Default durations
+  const defaultDurations: Record<string, number | null> = {
+    standard: 30,
+    premium: 90,
+    lifetime: null
+  };
+
+  const finalDuration = plan === 'lifetime' ? null : (durationDays || defaultDurations[plan]);
+
+  // Generate license key
+  const newKey = `PB-${plan.toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+  // Insert in valid_licenses
+  const { error } = await supabase.from('valid_licenses').insert({
+    license_key: newKey,
+    plan_type: plan,
+    duration_days: finalDuration,
+    redeemed: false
+  });
+
+  if (error) {
+    console.error('Create license error:', error);
+    return ephemeral(`❌ Erreur lors de la création de la licence.`);
+  }
+
+  // If user specified, send DM
+  if (userId) {
+    try {
+      const dmRes = await discordFetch('/users/@me/channels', {
+        method: 'POST',
+        body: JSON.stringify({ recipient_id: userId })
+      });
+      const dmChannel = await dmRes.json();
+
+      if (dmChannel.id) {
+        const durationText = finalDuration ? `${finalDuration} jours` : 'À vie';
+        await discordFetch(`/channels/${dmChannel.id}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({
+            embeds: [{
+              title: '🎉 Votre Licence est prête !',
+              description: 'Une licence vous a été attribuée par un administrateur.',
+              color: 0x22C55E,
+              fields: [
+                { name: '🔐 Clé de Licence', value: `\`\`\`${newKey}\`\`\``, inline: false },
+                { name: '📦 Plan', value: plan.charAt(0).toUpperCase() + plan.slice(1), inline: true },
+                { name: '⏰ Durée', value: durationText, inline: true },
+                { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+                { name: '📝 Comment activer ?', value: 
+                  '1️⃣ Allez sur votre serveur Discord\n' +
+                  '2️⃣ Tapez `/license activate key:' + newKey + '`\n' +
+                  '3️⃣ Profitez du bot !', inline: false }
+              ],
+              footer: { text: '⚠️ Conservez cette clé en lieu sûr !' }
+            }]
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to DM user:', e);
+    }
+  }
+
+  const durationText = finalDuration ? `${finalDuration} jours` : 'À vie';
+  return ephemeral('', [{
+    title: '✅ Licence Créée',
+    color: 0x22C55E,
+    fields: [
+      { name: '🔐 Clé', value: `\`\`\`${newKey}\`\`\``, inline: false },
+      { name: '📦 Plan', value: plan.charAt(0).toUpperCase() + plan.slice(1), inline: true },
+      { name: '⏰ Durée', value: durationText, inline: true },
+      ...(userId ? [{ name: '📨 Envoyée à', value: `<@${userId}>`, inline: true }] : [])
+    ],
+    footer: { text: 'Créée par super-admin' }
+  }]);
+}
+
+// List all licenses (superadmin only)
+async function handleListLicenses(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isSuperAdmin(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  }
+
+  const filter = getOption(interaction.data.options, 'filtre') as string | undefined;
+
+  let query = supabase.from('bot_licenses').select('*').order('activated_at', { ascending: false });
+  
+  if (filter === 'active') {
+    query = query.eq('is_active', true);
+  } else if (filter === 'expired') {
+    query = query.eq('is_active', false);
+  }
+
+  const { data: licenses } = await query.limit(25);
+
+  if (!licenses || licenses.length === 0) {
+    return ephemeral(`📋 Aucune licence trouvée.`);
+  }
+
+  const licenseList = licenses.map((l: any, i: number) => {
+    const date = new Date(l.activated_at).toLocaleDateString('fr-FR');
+    const status = l.is_active ? '🟢' : '🔴';
+    const expiresAt = l.expires_at ? new Date(l.expires_at).toLocaleDateString('fr-FR') : 'Jamais';
+    return `${status} **${l.plan_type}** - Guild: \`${l.guild_id.slice(0, 10)}...\`\n   └ Activée: ${date} | Expire: ${expiresAt}`;
+  }).join('\n\n').slice(0, 4000);
+
+  return ephemeral('', [{
+    title: '📋 Licences',
+    description: licenseList,
+    color: 0x3B82F6,
+    footer: { text: `Affichage des 25 dernières licences` }
+  }]);
+}
+
 // Check if user is owner (server owner or added as bot owner)
 async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
   // Check if server owner
@@ -2607,7 +2931,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses'];
     
     // Check license for all other commands (only if in a guild)
     if (!freeCmds.includes(cmd) && interaction.guild_id) {
@@ -2705,7 +3029,13 @@ serve(async (req) => {
         case 'setowner': return handleSetowner(interaction, supabase);
         case 'delowner': return handleDelowner(interaction, supabase);
 
-        // Advanced config commands
+        // Superadmin commands
+        case 'listallowners': return handleListAllOwners(interaction, supabase);
+        case 'listallbuyers': return handleListAllBuyers(interaction, supabase);
+        case 'revoke': return handleRevoke(interaction, supabase);
+        case 'createlicense': return handleCreateLicense(interaction, supabase);
+        case 'listlicenses': return handleListLicenses(interaction, supabase);
+
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);
         case 'rename': return handleRename(interaction, supabase);
