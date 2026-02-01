@@ -662,10 +662,10 @@ serve(async (req) => {
           { name: 'salon', description: 'Salon où afficher le panneau', type: 7, required: false }
         ]
       },
-      // --- SUPERADMIN COMMANDS ---
+      // --- CRÉATEUR COMMANDS ---
       {
         name: 'listallowners',
-        description: '🔒 [Superadmin] Lister tous les owners',
+        description: '🔒 [Créateur] Lister tous les owners',
         dm_permission: true,
         options: [
           { name: 'guild_id', description: 'ID du serveur (optionnel)', type: 3, required: false }
@@ -673,7 +673,7 @@ serve(async (req) => {
       },
       {
         name: 'listallbuyers',
-        description: '🔒 [Superadmin] Lister tous les buyers',
+        description: '🔒 [Créateur] Lister tous les buyers',
         dm_permission: true,
         options: [
           { name: 'guild_id', description: 'ID du serveur (optionnel)', type: 3, required: false }
@@ -681,7 +681,7 @@ serve(async (req) => {
       },
       {
         name: 'revoke',
-        description: '🔒 [Superadmin] Révoquer une licence',
+        description: '🔒 [Créateur] Révoquer une licence',
         dm_permission: true,
         options: [
           { name: 'guild_id', description: 'ID du serveur', type: 3, required: true },
@@ -690,7 +690,7 @@ serve(async (req) => {
       },
       {
         name: 'createlicense',
-        description: '🔒 [Superadmin] Créer une licence manuellement',
+        description: '🔒 [Créateur] Créer une licence manuellement',
         dm_permission: true,
         options: [
           { name: 'plan', description: 'Type de plan', type: 3, required: true, choices: [
@@ -704,7 +704,7 @@ serve(async (req) => {
       },
       {
         name: 'listlicenses',
-        description: '🔒 [Superadmin] Lister toutes les licences',
+        description: '🔒 [Créateur] Lister toutes les licences',
         dm_permission: true,
         options: [
           { name: 'filtre', description: 'Filtrer les licences', type: 3, required: false, choices: [
