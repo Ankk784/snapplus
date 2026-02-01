@@ -486,6 +486,22 @@ serve(async (req) => {
         default_member_permissions: '8'
       },
       {
+        name: 'setowner',
+        description: 'Ajouter un owner du bot (réservé au propriétaire du serveur)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'membre', description: 'Membre à ajouter comme owner (optionnel pour voir la liste)', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'delowner',
+        description: 'Retirer un owner du bot (réservé au propriétaire du serveur)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'membre', description: 'Membre à retirer', type: 6, required: true }
+        ]
+      },
+      {
         name: 'license',
         description: 'Gérer la licence du bot',
         default_member_permissions: '8',
