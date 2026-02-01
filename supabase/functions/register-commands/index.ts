@@ -484,6 +484,112 @@ serve(async (req) => {
         name: 'listoff',
         description: 'Voir la liste des commandes désactivées',
         default_member_permissions: '8'
+      },
+      // --- CONFIGURATION AVANCÉE ---
+      {
+        name: 'counter',
+        description: 'Gérer les compteurs du serveur',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
+            { name: 'view - Voir les compteurs', value: 'view' },
+            { name: 'create - Créer un compteur', value: 'create' },
+            { name: 'delete - Supprimer un compteur', value: 'delete' }
+          ]},
+          { name: 'salon', description: 'Salon du compteur', type: 7, required: false },
+          { name: 'type', description: 'Type de compteur', type: 3, required: false, choices: [
+            { name: 'members - Nombre de membres', value: 'members' },
+            { name: 'bots - Nombre de bots', value: 'bots' },
+            { name: 'channels - Nombre de salons', value: 'channels' },
+            { name: 'roles - Nombre de rôles', value: 'roles' }
+          ]}
+        ]
+      },
+      {
+        name: 'hidereply',
+        description: 'Masquer les réponses du bot quand un utilisateur n\'a pas les permissions',
+        default_member_permissions: '8',
+        options: [
+          { name: 'etat', description: 'Activer ou désactiver', type: 3, required: true, choices: [
+            { name: 'on - Masquer', value: 'on' },
+            { name: 'off - Afficher', value: 'off' }
+          ]}
+        ]
+      },
+      {
+        name: 'rename',
+        description: 'Renommer un ticket',
+        default_member_permissions: '2',
+        options: [
+          { name: 'nom', description: 'Nouveau nom du ticket', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'rolemenu',
+        description: 'Créer ou modifier un menu de rôles',
+        default_member_permissions: '8',
+        options: [
+          { name: 'titre', description: 'Titre du menu', type: 3, required: true },
+          { name: 'roles', description: 'Rôles (IDs séparés par des virgules)', type: 3, required: true },
+          { name: 'message_id', description: 'ID du message à modifier', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'showpic',
+        description: 'Configurer le snipe de photo de profil',
+        default_member_permissions: '8',
+        options: [
+          { name: 'etat', description: 'Activer ou désactiver', type: 3, required: true, choices: [
+            { name: 'on - Activer', value: 'on' },
+            { name: 'off - Désactiver', value: 'off' }
+          ]},
+          { name: 'salon', description: 'Salon pour les notifications', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'soutien',
+        description: 'Gérer les rôles de soutien',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
+            { name: 'list - Lister les rôles', value: 'list' },
+            { name: 'add - Ajouter un rôle', value: 'add' },
+            { name: 'remove - Retirer un rôle', value: 'remove' }
+          ]},
+          { name: 'role', description: 'Rôle de soutien', type: 8, required: false }
+        ]
+      },
+      {
+        name: 'soutien-nolog',
+        description: 'Ignorer les logs pour les rôles de soutien',
+        default_member_permissions: '8',
+        options: [
+          { name: 'etat', description: 'Activer ou désactiver', type: 3, required: true, choices: [
+            { name: 'on - Ignorer les logs', value: 'on' },
+            { name: 'off - Ne pas ignorer', value: 'off' }
+          ]}
+        ]
+      },
+      {
+        name: 'piconly',
+        description: 'Gérer les salons photos uniquement',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
+            { name: 'add - Ajouter un salon', value: 'add' },
+            { name: 'remove - Retirer un salon', value: 'remove' },
+            { name: 'list - Lister les salons', value: 'list' }
+          ]},
+          { name: 'salon', description: 'Salon concerné', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'ticketpanel',
+        description: 'Afficher le panneau des tickets',
+        default_member_permissions: '8',
+        options: [
+          { name: 'salon', description: 'Salon où afficher le panneau', type: 7, required: false }
+        ]
       }
     ];
 

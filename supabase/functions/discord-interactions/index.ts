@@ -523,20 +523,21 @@ function handleHelp(interaction: any) {
       "**⚙️ Gestion du serveur**\n" +
       "`/massiverole` `/unmassiverole` `/renew` `/embed`\n" +
       "`/bringall` `/serverinfo` `/userinfo` `/roleinfo`\n" +
-      "`/slowmode` `/temprole` `/announce`\n\n" +
+      "`/slowmode` `/temprole` `/announce` `/rolemenu`\n\n" +
       "**🎫 Tickets**\n" +
-      "`/ticket` `/close` `/add` `/remove` `/ticketconfig`\n\n" +
+      "`/ticket` `/close` `/add` `/remove` `/rename`\n" +
+      "`/ticketconfig` `/ticketpanel`\n\n" +
       "**📝 Notes & Logs**\n" +
       "`/note` `/notes` `/setlogs` `/setwelcome`\n\n" +
       "**🛡️ Protection**\n" +
       "`/antiraid` `/captcha` `/antilink` `/antispam`\n" +
       "`/antilink-ignore` `/antilink-sanction` `/antilink-type`\n" +
       "`/antispam-config` `/settings`\n\n" +
+      "**⚙️ Configuration**\n" +
+      "`/counter` `/hidereply` `/showpic`\n" +
+      "`/soutien` `/soutien-nolog` `/piconly`\n\n" +
       "**👑 Propriétaire**\n" +
-      "`/buyer [membre]` - Lister ou ajouter un buyer\n" +
-      "`/unbuyer <membre>` - Supprimer un buyer\n" +
-      "`/change <commande> <on/off>` - Activer/désactiver une commande\n" +
-      "`/listoff` - Voir les commandes désactivées\n\n" +
+      "`/buyer` `/unbuyer` `/change` `/listoff`\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
@@ -1646,6 +1647,379 @@ async function isCommandDisabled(supabase: any, guildId: string, commandName: st
   return !!data;
 }
 
+// ===== ADVANCED CONFIG COMMANDS =====
+
+// Counter command
+async function handleCounter(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+  const counterType = getOption(interaction.data.options, 'type') as string || 'members';
+
+  if (action === 'view') {
+    const { data: counters } = await supabase
+      .from('counters')
+      .select('*')
+      .eq('guild_id', guildId);
+
+    if (!counters || counters.length === 0) {
+      return ephemeral(`📊 Aucun compteur configuré.`);
+    }
+
+    const list = counters.map((c: any, i: number) => 
+      `**${i + 1}.** <#${c.channel_id}> - Type: \`${c.counter_type}\``
+    ).join('\n');
+
+    return ephemeral('', [{
+      title: '📊 Compteurs du serveur',
+      description: list,
+      color: 0x3B82F6
+    }]);
+  }
+
+  if (action === 'create') {
+    if (!channelId) {
+      return ephemeral(`❌ Veuillez spécifier un salon.`);
+    }
+
+    const { error } = await supabase.from('counters').insert({
+      guild_id: guildId,
+      channel_id: channelId,
+      counter_type: counterType
+    });
+
+    if (error && error.code === '23505') {
+      return ephemeral(`❌ Un compteur existe déjà pour ce salon.`);
+    }
+
+    return publicMsg(`✅ Compteur \`${counterType}\` créé dans <#${channelId}>.`);
+  }
+
+  if (action === 'delete') {
+    if (!channelId) {
+      return ephemeral(`❌ Veuillez spécifier un salon.`);
+    }
+
+    const { data } = await supabase
+      .from('counters')
+      .delete()
+      .eq('guild_id', guildId)
+      .eq('channel_id', channelId)
+      .select();
+
+    if (!data || data.length === 0) {
+      return ephemeral(`❌ Aucun compteur trouvé pour ce salon.`);
+    }
+
+    return publicMsg(`✅ Compteur supprimé.`);
+  }
+
+  return ephemeral(`❌ Action inconnue.`);
+}
+
+// Hidereply command
+async function handleHidereply(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const state = getOption(interaction.data.options, 'etat') as string;
+  const enabled = state === 'on';
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    hide_no_permission_reply: enabled,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  return publicMsg(`✅ Réponses de permission ${enabled ? 'masquées' : 'affichées'}.`);
+}
+
+// Rename ticket command
+async function handleRename(interaction: any, supabase: any) {
+  const channelId = interaction.channel_id;
+  const newName = getOption(interaction.data.options, 'nom') as string;
+
+  // Check if this is a ticket channel
+  const { data: ticket } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('channel_id', channelId)
+    .single();
+
+  if (!ticket) {
+    return ephemeral(`❌ Cette commande ne peut être utilisée que dans un ticket.`);
+  }
+
+  const res = await discordFetch(`/channels/${channelId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: newName })
+  });
+
+  if (!res.ok) {
+    return ephemeral(`❌ Impossible de renommer le salon.`);
+  }
+
+  return publicMsg(`✅ Ticket renommé en **${newName}**.`);
+}
+
+// Rolemenu command
+async function handleRolemenu(interaction: any) {
+  const title = getOption(interaction.data.options, 'titre') as string;
+  const rolesStr = getOption(interaction.data.options, 'roles') as string;
+  const messageId = getOption(interaction.data.options, 'message_id') as string;
+  const channelId = interaction.channel_id;
+
+  const roleIds = rolesStr.split(',').map(r => r.trim()).filter(r => r);
+
+  if (roleIds.length === 0) {
+    return ephemeral(`❌ Veuillez spécifier au moins un rôle.`);
+  }
+
+  const components = [{
+    type: 1,
+    components: [{
+      type: 3,
+      custom_id: 'rolemenu_select',
+      placeholder: 'Sélectionnez un rôle',
+      min_values: 0,
+      max_values: roleIds.length,
+      options: roleIds.map(id => ({
+        label: `Rôle ${id.slice(-4)}`,
+        value: id,
+        description: `Ajouter/retirer ce rôle`
+      }))
+    }]
+  }];
+
+  const embed = {
+    title: `🎭 ${title}`,
+    description: 'Sélectionnez les rôles que vous souhaitez obtenir.',
+    color: 0x3B82F6
+  };
+
+  if (messageId) {
+    // Update existing message
+    const res = await discordFetch(`/channels/${channelId}/messages/${messageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ embeds: [embed], components })
+    });
+
+    if (!res.ok) {
+      return ephemeral(`❌ Impossible de modifier le message.`);
+    }
+
+    return ephemeral(`✅ Menu de rôles mis à jour.`);
+  }
+
+  // Create new message
+  await discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ embeds: [embed], components })
+  });
+
+  return ephemeral(`✅ Menu de rôles créé.`);
+}
+
+// Showpic command
+async function handleShowpic(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const state = getOption(interaction.data.options, 'etat') as string;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+  const enabled = state === 'on';
+
+  const updates: any = {
+    id: guildId,
+    guild_id: guildId,
+    showpic_enabled: enabled,
+    updated_at: new Date().toISOString()
+  };
+
+  if (channelId) {
+    updates.showpic_channel_id = channelId;
+  }
+
+  await supabase.from('guild_config').upsert(updates, { onConflict: 'guild_id' });
+
+  if (enabled && channelId) {
+    return publicMsg(`✅ Snipe de photo de profil activé dans <#${channelId}>.`);
+  }
+  return publicMsg(`✅ Snipe de photo de profil ${enabled ? 'activé' : 'désactivé'}.`);
+}
+
+// Soutien command
+async function handleSoutien(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+
+  if (action === 'list') {
+    const { data: roles } = await supabase
+      .from('support_roles')
+      .select('*')
+      .eq('guild_id', guildId);
+
+    if (!roles || roles.length === 0) {
+      return ephemeral(`📋 Aucun rôle de soutien configuré.`);
+    }
+
+    const list = roles.map((r: any, i: number) => 
+      `**${i + 1}.** <@&${r.role_id}> ${r.nolog ? '(logs ignorés)' : ''}`
+    ).join('\n');
+
+    return ephemeral('', [{
+      title: '💪 Rôles de Soutien',
+      description: list,
+      color: 0x22C55E
+    }]);
+  }
+
+  if (action === 'add') {
+    if (!roleId) {
+      return ephemeral(`❌ Veuillez spécifier un rôle.`);
+    }
+
+    const { error } = await supabase.from('support_roles').insert({
+      guild_id: guildId,
+      role_id: roleId
+    });
+
+    if (error && error.code === '23505') {
+      return ephemeral(`❌ Ce rôle est déjà un rôle de soutien.`);
+    }
+
+    return publicMsg(`✅ <@&${roleId}> ajouté aux rôles de soutien.`);
+  }
+
+  if (action === 'remove') {
+    if (!roleId) {
+      return ephemeral(`❌ Veuillez spécifier un rôle.`);
+    }
+
+    const { data } = await supabase
+      .from('support_roles')
+      .delete()
+      .eq('guild_id', guildId)
+      .eq('role_id', roleId)
+      .select();
+
+    if (!data || data.length === 0) {
+      return ephemeral(`❌ Ce rôle n'est pas un rôle de soutien.`);
+    }
+
+    return publicMsg(`✅ <@&${roleId}> retiré des rôles de soutien.`);
+  }
+
+  return ephemeral(`❌ Action inconnue.`);
+}
+
+// Soutien nolog command
+async function handleSoutienNolog(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const state = getOption(interaction.data.options, 'etat') as string;
+  const nolog = state === 'on';
+
+  await supabase
+    .from('support_roles')
+    .update({ nolog })
+    .eq('guild_id', guildId);
+
+  return publicMsg(`✅ Logs des rôles de soutien ${nolog ? 'ignorés' : 'activés'}.`);
+}
+
+// Piconly command
+async function handlePiconly(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+
+  if (action === 'list') {
+    const { data: channels } = await supabase
+      .from('piconly_channels')
+      .select('*')
+      .eq('guild_id', guildId);
+
+    if (!channels || channels.length === 0) {
+      return ephemeral(`📷 Aucun salon photo configuré.`);
+    }
+
+    const list = channels.map((c: any, i: number) => 
+      `**${i + 1}.** <#${c.channel_id}>`
+    ).join('\n');
+
+    return ephemeral('', [{
+      title: '📷 Salons Photos Uniquement',
+      description: list,
+      color: 0x8B5CF6
+    }]);
+  }
+
+  if (action === 'add') {
+    if (!channelId) {
+      return ephemeral(`❌ Veuillez spécifier un salon.`);
+    }
+
+    const { error } = await supabase.from('piconly_channels').insert({
+      guild_id: guildId,
+      channel_id: channelId
+    });
+
+    if (error && error.code === '23505') {
+      return ephemeral(`❌ Ce salon est déjà configuré.`);
+    }
+
+    return publicMsg(`✅ <#${channelId}> est maintenant un salon photos uniquement.`);
+  }
+
+  if (action === 'remove') {
+    if (!channelId) {
+      return ephemeral(`❌ Veuillez spécifier un salon.`);
+    }
+
+    const { data } = await supabase
+      .from('piconly_channels')
+      .delete()
+      .eq('guild_id', guildId)
+      .eq('channel_id', channelId)
+      .select();
+
+    if (!data || data.length === 0) {
+      return ephemeral(`❌ Ce salon n'est pas configuré.`);
+    }
+
+    return publicMsg(`✅ <#${channelId}> n'est plus un salon photos uniquement.`);
+  }
+
+  return ephemeral(`❌ Action inconnue.`);
+}
+
+// Ticket panel command
+async function handleTicketPanel(interaction: any) {
+  const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
+
+  const embed = {
+    title: '🎫 Système de Tickets',
+    description: '**Besoin d\'aide ?**\n\nCliquez sur le bouton ci-dessous pour ouvrir un ticket.\nNotre équipe vous répondra dans les plus brefs délais.',
+    color: 0x3B82F6,
+    footer: { text: 'Support disponible 24/7' }
+  };
+
+  const components = [{
+    type: 1,
+    components: [{
+      type: 2,
+      style: 1,
+      label: '📩 Ouvrir un ticket',
+      custom_id: 'open_ticket'
+    }]
+  }];
+
+  await discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ embeds: [embed], components })
+  });
+
+  return ephemeral(`✅ Panneau de tickets envoyé dans <#${channelId}>.`);
+}
+
 // Ticket config
 async function handleTicketConfig(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
@@ -1827,6 +2201,17 @@ serve(async (req) => {
         case 'unbuyer': return handleUnbuyer(interaction, supabase);
         case 'change': return handleChange(interaction, supabase);
         case 'listoff': return handleListoff(interaction, supabase);
+
+        // Advanced config commands
+        case 'counter': return handleCounter(interaction, supabase);
+        case 'hidereply': return handleHidereply(interaction, supabase);
+        case 'rename': return handleRename(interaction, supabase);
+        case 'rolemenu': return handleRolemenu(interaction);
+        case 'showpic': return handleShowpic(interaction, supabase);
+        case 'soutien': return handleSoutien(interaction, supabase);
+        case 'soutien-nolog': return handleSoutienNolog(interaction, supabase);
+        case 'piconly': return handlePiconly(interaction, supabase);
+        case 'ticketpanel': return handleTicketPanel(interaction);
 
         default:
           return ephemeral("❌ Commande inconnue.");
