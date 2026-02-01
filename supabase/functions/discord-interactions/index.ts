@@ -2930,11 +2930,14 @@ serve(async (req) => {
   if (interaction.type === INTERACTION_TYPE.APPLICATION_COMMAND) {
     const cmd = interaction.data.name;
 
-    // Commands that don't require license (free commands + purchase commands)
+    // Commands that don't require license (free commands + purchase commands + créateur commands)
     const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses'];
     
-    // Check license for all other commands (only if in a guild)
-    if (!freeCmds.includes(cmd) && interaction.guild_id) {
+    // Get user ID for créateur check
+    const userId = interaction.member?.user?.id || interaction.user?.id;
+    
+    // Check license for all other commands (only if in a guild AND not a créateur)
+    if (!freeCmds.includes(cmd) && interaction.guild_id && !isCreateur(userId)) {
       const licenseCheck = await requireLicense(supabase, interaction.guild_id);
       if (licenseCheck) return licenseCheck;
     }
