@@ -1499,6 +1499,217 @@ async function handleSettings(interaction: any, supabase: any) {
   return ephemeral('', [embed]);
 }
 
+// ===== LICENSE SYSTEM =====
+
+// Generate random license key
+function generateLicenseKey(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const segments = [];
+  for (let i = 0; i < 4; i++) {
+    let segment = '';
+    for (let j = 0; j < 4; j++) {
+      segment += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    segments.push(segment);
+  }
+  return segments.join('-'); // Format: XXXX-XXXX-XXXX-XXXX
+}
+
+// Check if guild has valid license
+async function hasValidLicense(supabase: any, guildId: string): Promise<{ valid: boolean; license?: any }> {
+  const { data: license } = await supabase
+    .from('bot_licenses')
+    .select('*')
+    .eq('guild_id', guildId)
+    .eq('is_active', true)
+    .single();
+
+  if (!license) {
+    return { valid: false };
+  }
+
+  // Check expiration
+  if (license.expires_at && new Date(license.expires_at) < new Date()) {
+    // License expired, deactivate it
+    await supabase
+      .from('bot_licenses')
+      .update({ is_active: false })
+      .eq('id', license.id);
+    return { valid: false };
+  }
+
+  return { valid: true, license };
+}
+
+// License command handler
+async function handleLicense(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const userId = interaction.member.user.id;
+  const action = getOption(interaction.data.options, 'action') as string;
+  const key = getOption(interaction.data.options, 'key') as string | undefined;
+  const plan = getOption(interaction.data.options, 'plan') as string || 'standard';
+  const duration = getOption(interaction.data.options, 'duration') as number | undefined;
+
+  if (action === 'info') {
+    const { valid, license } = await hasValidLicense(supabase, guildId);
+
+    if (!valid) {
+      return ephemeral('', [{
+        title: '🔒 Aucune licence active',
+        description: 'Ce serveur n\'a pas de licence active.\n\nUtilisez `/license activate key:VOTRE-CLÉ` pour activer une licence.',
+        color: 0xEF4444,
+        fields: [
+          { name: '💡 Comment obtenir une licence ?', value: 'Contactez le propriétaire du bot pour acheter une clé de licence.', inline: false }
+        ]
+      }]);
+    }
+
+    const expiresAt = license.expires_at ? new Date(license.expires_at).toLocaleDateString('fr-FR') : 'Jamais';
+    const activatedAt = new Date(license.activated_at).toLocaleDateString('fr-FR');
+
+    return ephemeral('', [{
+      title: '✅ Licence Active',
+      description: 'Ce serveur possède une licence valide.',
+      color: 0x22C55E,
+      fields: [
+        { name: '🔑 Clé', value: `\`${license.license_key.substring(0, 9)}...\``, inline: true },
+        { name: '📦 Plan', value: license.plan_type.charAt(0).toUpperCase() + license.plan_type.slice(1), inline: true },
+        { name: '👤 Activée par', value: `<@${license.activated_by}>`, inline: true },
+        { name: '📅 Date d\'activation', value: activatedAt, inline: true },
+        { name: '⏰ Expiration', value: expiresAt, inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
+  if (action === 'activate') {
+    if (!key) {
+      return ephemeral('❌ Veuillez fournir une clé de licence avec l\'option `key`.');
+    }
+
+    // Check if guild already has a license
+    const { data: existingLicense } = await supabase
+      .from('bot_licenses')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('is_active', true)
+      .single();
+
+    if (existingLicense) {
+      return ephemeral('❌ Ce serveur possède déjà une licence active.');
+    }
+
+    // Check if key is valid and not redeemed
+    const { data: validLicense } = await supabase
+      .from('valid_licenses')
+      .select('*')
+      .eq('license_key', key.toUpperCase())
+      .eq('redeemed', false)
+      .single();
+
+    if (!validLicense) {
+      return ephemeral('❌ Clé de licence invalide ou déjà utilisée.');
+    }
+
+    // Calculate expiration
+    let expiresAt = null;
+    if (validLicense.duration_days) {
+      expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + validLicense.duration_days);
+    }
+
+    // Activate the license
+    const { error: activateError } = await supabase.from('bot_licenses').insert({
+      guild_id: guildId,
+      license_key: key.toUpperCase(),
+      activated_by: userId,
+      plan_type: validLicense.plan_type,
+      expires_at: expiresAt
+    });
+
+    if (activateError) {
+      console.error('License activation error:', activateError);
+      return ephemeral('❌ Erreur lors de l\'activation de la licence.');
+    }
+
+    // Mark key as redeemed
+    await supabase
+      .from('valid_licenses')
+      .update({ redeemed: true, redeemed_by: guildId, redeemed_at: new Date().toISOString() })
+      .eq('id', validLicense.id);
+
+    const expirationText = expiresAt ? expiresAt.toLocaleDateString('fr-FR') : 'Jamais';
+
+    return publicMsg('', [{
+      title: '🎉 Licence Activée !',
+      description: 'La licence a été activée avec succès sur ce serveur.',
+      color: 0x22C55E,
+      fields: [
+        { name: '📦 Plan', value: validLicense.plan_type.charAt(0).toUpperCase() + validLicense.plan_type.slice(1), inline: true },
+        { name: '⏰ Expiration', value: expirationText, inline: true },
+        { name: '👤 Activée par', value: `<@${userId}>`, inline: true }
+      ],
+      footer: { text: 'Merci pour votre confiance !' }
+    }]);
+  }
+
+  if (action === 'generate') {
+    // Only bot owner/admin can generate licenses
+    const permissions = BigInt(interaction.member.permissions);
+    const isAdmin = (permissions & BigInt(0x8)) === BigInt(0x8);
+
+    if (!isAdmin) {
+      return ephemeral('❌ Vous n\'avez pas la permission de générer des licences.');
+    }
+
+    const newKey = generateLicenseKey();
+
+    // Insert into valid_licenses
+    const { error } = await supabase.from('valid_licenses').insert({
+      license_key: newKey,
+      plan_type: plan,
+      duration_days: duration || (plan === 'lifetime' ? null : 30)
+    });
+
+    if (error) {
+      console.error('License generation error:', error);
+      return ephemeral('❌ Erreur lors de la génération de la licence.');
+    }
+
+    const durationText = duration ? `${duration} jours` : (plan === 'lifetime' ? 'Illimitée' : '30 jours');
+
+    return ephemeral('', [{
+      title: '🔑 Nouvelle Licence Générée',
+      description: 'Voici votre nouvelle clé de licence :',
+      color: 0xFFD700,
+      fields: [
+        { name: '🔐 Clé', value: `\`\`\`${newKey}\`\`\``, inline: false },
+        { name: '📦 Plan', value: plan.charAt(0).toUpperCase() + plan.slice(1), inline: true },
+        { name: '⏰ Durée', value: durationText, inline: true }
+      ],
+      footer: { text: '⚠️ Conservez cette clé en lieu sûr !' }
+    }]);
+  }
+
+  return ephemeral('❌ Action inconnue.');
+}
+
+// Check license before executing buyer commands
+async function requireLicense(supabase: any, guildId: string): Promise<Response | null> {
+  const { valid } = await hasValidLicense(supabase, guildId);
+  if (!valid) {
+    return ephemeral('', [{
+      title: '🔒 Licence Requise',
+      description: 'Ce serveur n\'a pas de licence active pour utiliser cette commande.',
+      color: 0xEF4444,
+      fields: [
+        { name: '💡 Comment obtenir une licence ?', value: 'Utilisez `/license info` pour plus d\'informations.', inline: false }
+      ]
+    }]);
+  }
+  return null; // License is valid
+}
+
 // ===== OWNER/BUYER COMMANDS =====
 
 // Buyer command - list or add buyers
@@ -2196,10 +2407,25 @@ serve(async (req) => {
         case 'banner': return handleBanner(interaction);
         case 'ping': return handlePing(interaction);
 
-        // Owner/Buyer commands
-        case 'buyer': return handleBuyer(interaction, supabase);
-        case 'unbuyer': return handleUnbuyer(interaction, supabase);
-        case 'change': return handleChange(interaction, supabase);
+        // License command (always available)
+        case 'license': return handleLicense(interaction, supabase);
+
+        // Owner/Buyer commands (require license)
+        case 'buyer': {
+          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
+          if (licenseCheck) return licenseCheck;
+          return handleBuyer(interaction, supabase);
+        }
+        case 'unbuyer': {
+          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
+          if (licenseCheck) return licenseCheck;
+          return handleUnbuyer(interaction, supabase);
+        }
+        case 'change': {
+          const licenseCheck = await requireLicense(supabase, interaction.guild_id);
+          if (licenseCheck) return licenseCheck;
+          return handleChange(interaction, supabase);
+        }
         case 'listoff': return handleListoff(interaction, supabase);
 
         // Advanced config commands

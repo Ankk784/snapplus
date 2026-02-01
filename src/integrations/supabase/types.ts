@@ -38,6 +38,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_licenses: {
+        Row: {
+          activated_at: string
+          activated_by: string
+          created_at: string
+          expires_at: string | null
+          guild_id: string
+          id: string
+          is_active: boolean
+          license_key: string
+          plan_type: string
+        }
+        Insert: {
+          activated_at?: string
+          activated_by: string
+          created_at?: string
+          expires_at?: string | null
+          guild_id: string
+          id?: string
+          is_active?: boolean
+          license_key: string
+          plan_type?: string
+        }
+        Update: {
+          activated_at?: string
+          activated_by?: string
+          created_at?: string
+          expires_at?: string | null
+          guild_id?: string
+          id?: string
+          is_active?: boolean
+          license_key?: string
+          plan_type?: string
+        }
+        Relationships: []
+      }
       counters: {
         Row: {
           channel_id: string
@@ -446,6 +482,39 @@ export type Database = {
           moderator_id?: string
           note?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      valid_licenses: {
+        Row: {
+          created_at: string
+          duration_days: number | null
+          id: string
+          license_key: string
+          plan_type: string
+          redeemed: boolean
+          redeemed_at: string | null
+          redeemed_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_days?: number | null
+          id?: string
+          license_key: string
+          plan_type?: string
+          redeemed?: boolean
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_days?: number | null
+          id?: string
+          license_key?: string
+          plan_type?: string
+          redeemed?: boolean
+          redeemed_at?: string | null
+          redeemed_by?: string | null
         }
         Relationships: []
       }
