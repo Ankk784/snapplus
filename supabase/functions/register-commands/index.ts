@@ -342,11 +342,86 @@ serve(async (req) => {
       },
       {
         name: 'antilink',
-        description: 'Activer/désactiver la suppression des liens d\'invitation Discord',
+        description: 'Configurer la protection anti-liens',
         default_member_permissions: '8',
         options: [
-          { name: 'activer', description: 'Activer ou désactiver', type: 5, required: true }
+          { 
+            name: 'action', 
+            description: 'Action à effectuer', 
+            type: 3, 
+            required: true,
+            choices: [
+              { name: 'on - Activer', value: 'on' },
+              { name: 'off - Désactiver', value: 'off' },
+              { name: 'max - Paramètres actuels', value: 'max' }
+            ]
+          }
         ]
+      },
+      {
+        name: 'antilink-ignore',
+        description: 'Ignorer un salon pour l\'antilink',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Ajouter ou retirer', type: 3, required: true, choices: [
+            { name: 'on - Ignorer ce salon', value: 'on' },
+            { name: 'off - Ne plus ignorer', value: 'off' }
+          ]},
+          { name: 'salon', description: 'Salon à ignorer', type: 7, required: true }
+        ]
+      },
+      {
+        name: 'antilink-sanction',
+        description: 'Définir la sanction pour l\'antilink',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Activer ou désactiver les sanctions', type: 3, required: true, choices: [
+            { name: 'on - Activer les sanctions', value: 'on' },
+            { name: 'off - Juste supprimer', value: 'off' }
+          ]}
+        ]
+      },
+      {
+        name: 'antilink-type',
+        description: 'Type de liens à bloquer',
+        default_member_permissions: '8',
+        options: [
+          { name: 'type', description: 'Type de liens', type: 3, required: true, choices: [
+            { name: 'invites - Liens Discord uniquement', value: 'invites' },
+            { name: 'all - Tous les liens', value: 'all' }
+          ]}
+        ]
+      },
+      {
+        name: 'antispam',
+        description: 'Configurer la protection anti-spam',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
+            { name: 'on - Activer', value: 'on' },
+            { name: 'off - Désactiver', value: 'off' },
+            { name: 'max - Paramètres actuels', value: 'max' }
+          ]}
+        ]
+      },
+      {
+        name: 'antispam-config',
+        description: 'Paramétrer l\'antispam',
+        default_member_permissions: '8',
+        options: [
+          { name: 'messages', description: 'Nombre de messages max (défaut: 5)', type: 4, required: false },
+          { name: 'secondes', description: 'Intervalle en secondes (défaut: 5)', type: 4, required: false },
+          { name: 'sanction', description: 'Sanction appliquée', type: 3, required: false, choices: [
+            { name: 'mute - Mute l\'utilisateur', value: 'mute' },
+            { name: 'kick - Expulser', value: 'kick' },
+            { name: 'ban - Bannir', value: 'ban' }
+          ]}
+        ]
+      },
+      {
+        name: 'settings',
+        description: 'Afficher les paramètres du bot sur le serveur',
+        default_member_permissions: '8'
       },
       {
         name: 'ticketconfig',

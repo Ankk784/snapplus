@@ -529,7 +529,9 @@ function handleHelp(interaction: any) {
       "**📝 Notes & Logs**\n" +
       "`/note` `/notes` `/setlogs` `/setwelcome`\n\n" +
       "**🛡️ Protection**\n" +
-      "`/antiraid` `/captcha` `/antilink`\n\n" +
+      "`/antiraid` `/captcha` `/antilink` `/antispam`\n" +
+      "`/antilink-ignore` `/antilink-sanction` `/antilink-type`\n" +
+      "`/antispam-config` `/settings`\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
@@ -1236,8 +1238,34 @@ async function handleCaptcha(interaction: any, supabase: any) {
 // Antilink config
 async function handleAntilink(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
-  const enabled = getOption(interaction.data.options, 'activer') as boolean;
+  const action = getOption(interaction.data.options, 'action') as string;
 
+  if (action === 'max') {
+    // Show current settings
+    const { data: config } = await supabase
+      .from('guild_config')
+      .select('antilink_enabled, antilink_type, antilink_sanction, antilink_ignored_channels')
+      .eq('guild_id', guildId)
+      .single();
+
+    const enabled = config?.antilink_enabled ? '✅ Activé' : '❌ Désactivé';
+    const type = config?.antilink_type === 'all' ? 'Tous les liens' : 'Invitations Discord';
+    const sanction = config?.antilink_sanction === 'delete' ? 'Suppression uniquement' : 'Suppression + sanction';
+    const ignored = config?.antilink_ignored_channels?.length || 0;
+
+    return ephemeral('', [{
+      title: '🔗 Paramètres Anti-Lien',
+      color: 0x2B2D31,
+      fields: [
+        { name: 'État', value: enabled, inline: true },
+        { name: 'Type', value: type, inline: true },
+        { name: 'Sanction', value: sanction, inline: true },
+        { name: 'Salons ignorés', value: `${ignored} salon(s)`, inline: true }
+      ]
+    }]);
+  }
+
+  const enabled = action === 'on';
   await supabase.from('guild_config').upsert({
     id: guildId,
     guild_id: guildId,
@@ -1249,6 +1277,220 @@ async function handleAntilink(interaction: any, supabase: any) {
     return publicMsg(`🔗 Anti-lien **activé**. Les liens d'invitation Discord seront supprimés automatiquement.`);
   }
   return publicMsg(`🔗 Anti-lien **désactivé**.`);
+}
+
+// Antilink ignore channel
+async function handleAntilinkIgnore(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+  const channelId = getOption(interaction.data.options, 'salon') as string;
+
+  // Get current config
+  const { data: config } = await supabase
+    .from('guild_config')
+    .select('antilink_ignored_channels')
+    .eq('guild_id', guildId)
+    .single();
+
+  let channels: string[] = config?.antilink_ignored_channels || [];
+
+  if (action === 'on') {
+    if (!channels.includes(channelId)) {
+      channels.push(channelId);
+    }
+    await supabase.from('guild_config').upsert({
+      id: guildId,
+      guild_id: guildId,
+      antilink_ignored_channels: channels,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'guild_id' });
+    return publicMsg(`✅ Le salon <#${channelId}> est maintenant **ignoré** par l'antilink.`);
+  } else {
+    channels = channels.filter(c => c !== channelId);
+    await supabase.from('guild_config').upsert({
+      id: guildId,
+      guild_id: guildId,
+      antilink_ignored_channels: channels,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'guild_id' });
+    return publicMsg(`✅ Le salon <#${channelId}> n'est **plus ignoré** par l'antilink.`);
+  }
+}
+
+// Antilink sanction
+async function handleAntilinkSanction(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+
+  const sanction = action === 'on' ? 'sanction' : 'delete';
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    antilink_sanction: sanction,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (action === 'on') {
+    return publicMsg(`⚠️ Les sanctions antilink sont **activées**. Les utilisateurs seront sanctionnés en plus de la suppression.`);
+  }
+  return publicMsg(`✅ Les sanctions antilink sont **désactivées**. Les messages seront juste supprimés.`);
+}
+
+// Antilink type
+async function handleAntilinkType(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const type = getOption(interaction.data.options, 'type') as string;
+
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    antilink_type: type,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (type === 'all') {
+    return publicMsg(`🔗 L'antilink bloquera **tous les liens**.`);
+  }
+  return publicMsg(`🔗 L'antilink bloquera uniquement les **liens d'invitation Discord**.`);
+}
+
+// Antispam config
+async function handleAntispam(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const action = getOption(interaction.data.options, 'action') as string;
+
+  if (action === 'max') {
+    const { data: config } = await supabase
+      .from('guild_config')
+      .select('antispam_enabled, antispam_max_messages, antispam_timeframe, antispam_sanction')
+      .eq('guild_id', guildId)
+      .single();
+
+    const enabled = config?.antispam_enabled ? '✅ Activé' : '❌ Désactivé';
+    const maxMsg = config?.antispam_max_messages || 5;
+    const timeframe = config?.antispam_timeframe || 5;
+    const sanction = config?.antispam_sanction || 'mute';
+
+    return ephemeral('', [{
+      title: '🛡️ Paramètres Anti-Spam',
+      color: 0x2B2D31,
+      fields: [
+        { name: 'État', value: enabled, inline: true },
+        { name: 'Messages max', value: `${maxMsg} messages`, inline: true },
+        { name: 'Intervalle', value: `${timeframe} secondes`, inline: true },
+        { name: 'Sanction', value: sanction.toUpperCase(), inline: true }
+      ]
+    }]);
+  }
+
+  const enabled = action === 'on';
+  await supabase.from('guild_config').upsert({
+    id: guildId,
+    guild_id: guildId,
+    antispam_enabled: enabled,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'guild_id' });
+
+  if (enabled) {
+    return publicMsg(`🛡️ Anti-spam **activé**.`);
+  }
+  return publicMsg(`🛡️ Anti-spam **désactivé**.`);
+}
+
+// Antispam configuration
+async function handleAntispamConfig(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const messages = getOption(interaction.data.options, 'messages') as number;
+  const timeframe = getOption(interaction.data.options, 'secondes') as number;
+  const sanction = getOption(interaction.data.options, 'sanction') as string;
+
+  const updates: any = {
+    id: guildId,
+    guild_id: guildId,
+    updated_at: new Date().toISOString()
+  };
+
+  if (messages) updates.antispam_max_messages = messages;
+  if (timeframe) updates.antispam_timeframe = timeframe;
+  if (sanction) updates.antispam_sanction = sanction;
+
+  await supabase.from('guild_config').upsert(updates, { onConflict: 'guild_id' });
+
+  const parts = [];
+  if (messages) parts.push(`Messages: **${messages}**`);
+  if (timeframe) parts.push(`Intervalle: **${timeframe}s**`);
+  if (sanction) parts.push(`Sanction: **${sanction}**`);
+
+  return publicMsg(`✅ Configuration anti-spam mise à jour.\n${parts.join(' | ')}`);
+}
+
+// Settings command - show all bot settings
+async function handleSettings(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+
+  const { data: config } = await supabase
+    .from('guild_config')
+    .select('*')
+    .eq('guild_id', guildId)
+    .single();
+
+  const c = config || {};
+
+  const embed = {
+    title: '⚙️ Paramètres du Bot',
+    color: 0x2B2D31,
+    fields: [
+      {
+        name: '🔗 Anti-Lien',
+        value: [
+          `État: ${c.antilink_enabled ? '✅' : '❌'}`,
+          `Type: ${c.antilink_type === 'all' ? 'Tous les liens' : 'Invitations'}`,
+          `Sanction: ${c.antilink_sanction === 'sanction' ? 'Oui' : 'Non'}`
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '🛡️ Anti-Spam',
+        value: [
+          `État: ${c.antispam_enabled ? '✅' : '❌'}`,
+          `Max: ${c.antispam_max_messages || 5} msg / ${c.antispam_timeframe || 5}s`,
+          `Sanction: ${c.antispam_sanction || 'mute'}`
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '🛡️ Anti-Raid',
+        value: [
+          `État: ${c.antiraid_enabled ? '✅' : '❌'}`,
+          `Max: ${c.antiraid_max_joins || 10} joins / ${c.antiraid_timeframe || 60}s`
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '🔒 Captcha',
+        value: [
+          `État: ${c.captcha_enabled ? '✅' : '❌'}`,
+          c.captcha_channel_id ? `Salon: <#${c.captcha_channel_id}>` : 'Salon: Non défini',
+          c.captcha_role_id ? `Rôle: <@&${c.captcha_role_id}>` : 'Rôle: Non défini'
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '👋 Bienvenue',
+        value: c.welcome_channel_id ? `<#${c.welcome_channel_id}>` : 'Non configuré',
+        inline: true
+      },
+      {
+        name: '📋 Logs',
+        value: c.logs_channel_id ? `<#${c.logs_channel_id}>` : 'Non configuré',
+        inline: true
+      }
+    ],
+    footer: { text: `Serveur: ${guildId}` },
+    timestamp: new Date().toISOString()
+  };
+
+  return ephemeral('', [embed]);
 }
 
 // Ticket config
@@ -1415,6 +1657,12 @@ serve(async (req) => {
         case 'antiraid': return handleAntiraid(interaction, supabase);
         case 'captcha': return handleCaptcha(interaction, supabase);
         case 'antilink': return handleAntilink(interaction, supabase);
+        case 'antilink-ignore': return handleAntilinkIgnore(interaction, supabase);
+        case 'antilink-sanction': return handleAntilinkSanction(interaction, supabase);
+        case 'antilink-type': return handleAntilinkType(interaction, supabase);
+        case 'antispam': return handleAntispam(interaction, supabase);
+        case 'antispam-config': return handleAntispamConfig(interaction, supabase);
+        case 'settings': return handleSettings(interaction, supabase);
 
         // Utility commands
         case 'avatar': return handleAvatar(interaction);
