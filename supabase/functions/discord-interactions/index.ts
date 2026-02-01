@@ -513,62 +513,26 @@ async function handleSanctionsClear(interaction: any, supabase: any) {
 
 // Handle help command
 function handleHelp(interaction: any) {
-  const embeds = [
-    {
-      title: "📖 Liste des commandes",
-      description: "Les paramètres entre `<>` sont obligatoires, ceux entre `[]` sont facultatifs.",
-      color: 0x2B2D31,
-      fields: [],
-      footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
-      timestamp: new Date().toISOString()
-    },
-    {
-      title: "🛡️ Modération",
-      color: 0xEF4444,
-      fields: [
-        { name: "`/ban <membre> [raison]`", value: "Bannir un utilisateur du serveur", inline: false },
-        { name: "`/unban <user_id>`", value: "Débannir un utilisateur", inline: false },
-        { name: "`/kick <membre> [raison]`", value: "Expulser un utilisateur du serveur", inline: false },
-        { name: "`/mute <membre> <durée> [raison]`", value: "Rendre muet un utilisateur (timeout)", inline: false },
-        { name: "`/unmute <membre>`", value: "Retirer le mute d'un utilisateur", inline: false },
-        { name: "`/warn <membre> <raison>`", value: "Avertir un utilisateur", inline: false },
-        { name: "`/clear <nombre> [membre]`", value: "Supprimer des messages (1-100)", inline: false },
-        { name: "`/lock [salon]`", value: "Verrouiller un salon", inline: false },
-        { name: "`/unlock [salon]`", value: "Déverrouiller un salon", inline: false },
-        { name: "`/addrole <membre> <role>`", value: "Ajouter un rôle à un membre", inline: false },
-        { name: "`/delrole <membre> <role>`", value: "Retirer un rôle d'un membre", inline: false },
-        { name: "`/sanctions <membre>`", value: "Voir les sanctions d'un utilisateur", inline: false },
-        { name: "`/sanctions-clear <membre>`", value: "Supprimer les sanctions d'un membre", inline: false },
-        { name: "`/banlist`", value: "Voir la liste des utilisateurs bannis", inline: false },
-        { name: "`/mutelist`", value: "Voir la liste des utilisateurs en timeout", inline: false },
-      ]
-    },
-    {
-      title: "⚙️ Gestion du serveur",
-      color: 0x3B82F6,
-      fields: [
-        { name: "`/massiverole <role>`", value: "Ajouter un rôle à tous les membres du serveur", inline: false },
-        { name: "`/unmassiverole <role>`", value: "Retirer un rôle de tous les membres du serveur", inline: false },
-        { name: "`/renew [salon]`", value: "Recréer un salon (le supprimer et le recréer identique)", inline: false },
-        { name: "`/embed <titre> <description> [couleur]`", value: "Créer un embed personnalisé", inline: false },
-        { name: "`/bringall <salon>`", value: "Déplacer tous les utilisateurs d'un vocal vers un autre", inline: false },
-        { name: "`/serverinfo`", value: "Affiche les informations du serveur", inline: false },
-        { name: "`/userinfo [membre]`", value: "Affiche les informations d'un utilisateur", inline: false },
-        { name: "`/roleinfo <role>`", value: "Affiche les informations d'un rôle", inline: false },
-      ]
-    },
-    {
-      title: "🔧 Utilitaires",
-      color: 0x22C55E,
-      fields: [
-        { name: "`/say <message>`", value: "Envoyer un message via le bot", inline: false },
-        { name: "`/stats`", value: "Afficher les statistiques en temps réel", inline: false },
-        { name: "`/help`", value: "Afficher cette aide", inline: false },
-      ]
-    }
-  ];
+  const embed = {
+    title: "📖 Liste des commandes",
+    description: "Les paramètres entre `<>` sont obligatoires, ceux entre `[]` sont facultatifs.\n\n" +
+      "**🛡️ Modération**\n" +
+      "`/ban` `/unban` `/kick` `/mute` `/unmute` `/warn`\n" +
+      "`/clear` `/lock` `/unlock` `/addrole` `/delrole`\n" +
+      "`/sanctions` `/sanctions-clear` `/banlist` `/mutelist`\n\n" +
+      "**⚙️ Gestion du serveur**\n" +
+      "`/massiverole` `/unmassiverole` `/renew` `/embed`\n" +
+      "`/bringall` `/serverinfo` `/userinfo` `/roleinfo`\n\n" +
+      "**🔧 Utilitaires**\n" +
+      "`/say` `/stats` `/help`\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+      "Utilisez `/help <commande>` pour plus de détails.",
+    color: 0x2B2D31,
+    footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
+    timestamp: new Date().toISOString()
+  };
 
-  return publicMsg('', embeds);
+  return publicMsg('', [embed]);
 }
 
 // Server Gestion handlers
