@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      guild_config: {
+        Row: {
+          antiraid_enabled: boolean | null
+          antiraid_max_joins: number | null
+          antiraid_timeframe: number | null
+          captcha_channel_id: string | null
+          captcha_enabled: boolean | null
+          captcha_role_id: string | null
+          created_at: string
+          goodbye_message: string | null
+          guild_id: string
+          id: string
+          logs_channel_id: string | null
+          ticket_category_id: string | null
+          ticket_support_role_id: string | null
+          updated_at: string
+          welcome_channel_id: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          antiraid_enabled?: boolean | null
+          antiraid_max_joins?: number | null
+          antiraid_timeframe?: number | null
+          captcha_channel_id?: string | null
+          captcha_enabled?: boolean | null
+          captcha_role_id?: string | null
+          created_at?: string
+          goodbye_message?: string | null
+          guild_id: string
+          id: string
+          logs_channel_id?: string | null
+          ticket_category_id?: string | null
+          ticket_support_role_id?: string | null
+          updated_at?: string
+          welcome_channel_id?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          antiraid_enabled?: boolean | null
+          antiraid_max_joins?: number | null
+          antiraid_timeframe?: number | null
+          captcha_channel_id?: string | null
+          captcha_enabled?: boolean | null
+          captcha_role_id?: string | null
+          created_at?: string
+          goodbye_message?: string | null
+          guild_id?: string
+          id?: string
+          logs_channel_id?: string | null
+          ticket_category_id?: string | null
+          ticket_support_role_id?: string | null
+          updated_at?: string
+          welcome_channel_id?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      mod_logs: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: Json | null
+          guild_id: string
+          id: string
+          moderator_id: string | null
+          target_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: Json | null
+          guild_id: string
+          id?: string
+          moderator_id?: string | null
+          target_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: Json | null
+          guild_id?: string
+          id?: string
+          moderator_id?: string | null
+          target_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sanctions: {
         Row: {
           active: boolean | null
@@ -130,6 +220,72 @@ export type Database = {
           guild_id?: string
           id?: string
           role_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          channel_id: string
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string
+          guild_id: string
+          id: string
+          status: string
+          subject: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by: string
+          guild_id: string
+          id?: string
+          status?: string
+          subject?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          guild_id?: string
+          id?: string
+          status?: string
+          subject?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notes: {
+        Row: {
+          created_at: string
+          guild_id: string
+          id: string
+          moderator_id: string
+          note: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          guild_id: string
+          id?: string
+          moderator_id: string
+          note: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          guild_id?: string
+          id?: string
+          moderator_id?: string
+          note?: string
           user_id?: string
         }
         Relationships: []

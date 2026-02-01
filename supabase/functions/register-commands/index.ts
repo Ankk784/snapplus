@@ -28,12 +28,7 @@ serve(async (req) => {
         name: 'say',
         description: 'Envoie un message dans le salon',
         options: [
-          {
-            name: 'message',
-            description: 'Le message à envoyer',
-            type: 3, // STRING
-            required: true
-          }
+          { name: 'message', description: 'Le message à envoyer', type: 3, required: true }
         ]
       },
       {
@@ -44,7 +39,7 @@ serve(async (req) => {
       {
         name: 'ban',
         description: 'Bannir un utilisateur du serveur',
-        default_member_permissions: '4', // BAN_MEMBERS
+        default_member_permissions: '4',
         options: [
           { name: 'membre', description: 'L\'utilisateur à bannir', type: 6, required: true },
           { name: 'raison', description: 'Raison du ban', type: 3, required: false }
@@ -61,7 +56,7 @@ serve(async (req) => {
       {
         name: 'kick',
         description: 'Expulser un utilisateur du serveur',
-        default_member_permissions: '2', // KICK_MEMBERS
+        default_member_permissions: '2',
         options: [
           { name: 'membre', description: 'L\'utilisateur à expulser', type: 6, required: true },
           { name: 'raison', description: 'Raison de l\'expulsion', type: 3, required: false }
@@ -70,7 +65,7 @@ serve(async (req) => {
       {
         name: 'mute',
         description: 'Rendre muet un utilisateur (timeout)',
-        default_member_permissions: '1099511627776', // MODERATE_MEMBERS
+        default_member_permissions: '1099511627776',
         options: [
           { name: 'membre', description: 'L\'utilisateur à mute', type: 6, required: true },
           { name: 'duree', description: 'Durée (ex: 10m, 1h, 1d)', type: 3, required: true },
@@ -88,7 +83,7 @@ serve(async (req) => {
       {
         name: 'clear',
         description: 'Supprimer des messages dans le salon',
-        default_member_permissions: '8192', // MANAGE_MESSAGES
+        default_member_permissions: '8192',
         options: [
           { name: 'nombre', description: 'Nombre de messages à supprimer (1-100)', type: 4, required: true },
           { name: 'membre', description: 'Filtrer par utilisateur', type: 6, required: false }
@@ -97,7 +92,7 @@ serve(async (req) => {
       {
         name: 'lock',
         description: 'Verrouiller un salon',
-        default_member_permissions: '16', // MANAGE_CHANNELS
+        default_member_permissions: '16',
         options: [
           { name: 'salon', description: 'Salon à verrouiller (défaut: actuel)', type: 7, required: false }
         ]
@@ -113,7 +108,7 @@ serve(async (req) => {
       {
         name: 'addrole',
         description: 'Ajouter un rôle à un membre',
-        default_member_permissions: '268435456', // MANAGE_ROLES
+        default_member_permissions: '268435456',
         options: [
           { name: 'membre', description: 'L\'utilisateur', type: 6, required: true },
           { name: 'role', description: 'Le rôle à ajouter', type: 8, required: true }
@@ -158,7 +153,7 @@ serve(async (req) => {
       {
         name: 'sanctions-clear',
         description: 'Supprimer les sanctions d\'un membre',
-        default_member_permissions: '8', // ADMINISTRATOR
+        default_member_permissions: '8',
         options: [
           { name: 'membre', description: 'L\'utilisateur', type: 6, required: true }
         ]
@@ -167,7 +162,7 @@ serve(async (req) => {
       {
         name: 'massiverole',
         description: 'Ajouter un rôle à tous les membres du serveur',
-        default_member_permissions: '8', // ADMINISTRATOR
+        default_member_permissions: '8',
         options: [
           { name: 'role', description: 'Le rôle à ajouter', type: 8, required: true }
         ]
@@ -183,7 +178,7 @@ serve(async (req) => {
       {
         name: 'renew',
         description: 'Recréer un salon (le supprimer et le recréer identique)',
-        default_member_permissions: '16', // MANAGE_CHANNELS
+        default_member_permissions: '16',
         options: [
           { name: 'salon', description: 'Salon à recréer (défaut: actuel)', type: 7, required: false }
         ]
@@ -191,7 +186,7 @@ serve(async (req) => {
       {
         name: 'embed',
         description: 'Créer un embed personnalisé',
-        default_member_permissions: '8192', // MANAGE_MESSAGES
+        default_member_permissions: '8192',
         options: [
           { name: 'titre', description: 'Titre de l\'embed', type: 3, required: true },
           { name: 'description', description: 'Description de l\'embed', type: 3, required: true },
@@ -222,10 +217,156 @@ serve(async (req) => {
       {
         name: 'bringall',
         description: 'Déplacer tous les utilisateurs d\'un salon vocal vers un autre',
-        default_member_permissions: '16777216', // MOVE_MEMBERS
+        default_member_permissions: '16777216',
         options: [
           { name: 'salon', description: 'Salon vocal de destination', type: 7, required: true }
         ]
+      },
+      // --- NEW COMMANDS ---
+      {
+        name: 'slowmode',
+        description: 'Définir le slowmode d\'un salon',
+        default_member_permissions: '16',
+        options: [
+          { name: 'duree', description: 'Durée en secondes (0 pour désactiver)', type: 4, required: true },
+          { name: 'salon', description: 'Salon (défaut: actuel)', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'temprole',
+        description: 'Ajouter un rôle temporaire à un membre',
+        default_member_permissions: '268435456',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true },
+          { name: 'role', description: 'Le rôle à ajouter', type: 8, required: true },
+          { name: 'duree', description: 'Durée (ex: 1h, 1d, 7d)', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'note',
+        description: 'Ajouter une note privée sur un utilisateur',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true },
+          { name: 'note', description: 'La note à ajouter', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'notes',
+        description: 'Voir les notes sur un utilisateur',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'announce',
+        description: 'Envoyer une annonce formatée',
+        default_member_permissions: '8192',
+        options: [
+          { name: 'titre', description: 'Titre de l\'annonce', type: 3, required: true },
+          { name: 'message', description: 'Contenu de l\'annonce', type: 3, required: true },
+          { name: 'salon', description: 'Salon de destination', type: 7, required: false },
+          { name: 'mention', description: 'Mentionner @everyone', type: 5, required: false }
+        ]
+      },
+      // --- TICKET SYSTEM ---
+      {
+        name: 'ticket',
+        description: 'Créer un ticket de support',
+        options: [
+          { name: 'sujet', description: 'Sujet du ticket', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'close',
+        description: 'Fermer un ticket',
+        default_member_permissions: '2',
+        options: [
+          { name: 'raison', description: 'Raison de la fermeture', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'add',
+        description: 'Ajouter un utilisateur au ticket',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à ajouter', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'remove',
+        description: 'Retirer un utilisateur du ticket',
+        default_member_permissions: '2',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur à retirer', type: 6, required: true }
+        ]
+      },
+      // --- CONFIGURATION ---
+      {
+        name: 'setlogs',
+        description: 'Définir le salon des logs',
+        default_member_permissions: '8',
+        options: [
+          { name: 'salon', description: 'Salon des logs', type: 7, required: true }
+        ]
+      },
+      {
+        name: 'setwelcome',
+        description: 'Configurer le message de bienvenue',
+        default_member_permissions: '8',
+        options: [
+          { name: 'salon', description: 'Salon de bienvenue', type: 7, required: true },
+          { name: 'message', description: 'Message ({user} = mention, {server} = nom serveur)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'antiraid',
+        description: 'Activer/désactiver la protection anti-raid',
+        default_member_permissions: '8',
+        options: [
+          { name: 'activer', description: 'Activer ou désactiver', type: 5, required: true },
+          { name: 'max_joins', description: 'Nombre max de joins (défaut: 10)', type: 4, required: false },
+          { name: 'secondes', description: 'Intervalle en secondes (défaut: 60)', type: 4, required: false }
+        ]
+      },
+      {
+        name: 'captcha',
+        description: 'Configurer le système de captcha',
+        default_member_permissions: '8',
+        options: [
+          { name: 'activer', description: 'Activer ou désactiver', type: 5, required: true },
+          { name: 'salon', description: 'Salon de vérification', type: 7, required: false },
+          { name: 'role', description: 'Rôle à donner après vérification', type: 8, required: false }
+        ]
+      },
+      {
+        name: 'ticketconfig',
+        description: 'Configurer le système de tickets',
+        default_member_permissions: '8',
+        options: [
+          { name: 'categorie', description: 'Catégorie pour les tickets', type: 7, required: true },
+          { name: 'role_support', description: 'Rôle support qui voit les tickets', type: 8, required: false }
+        ]
+      },
+      // --- FUN / UTILITY ---
+      {
+        name: 'avatar',
+        description: 'Afficher l\'avatar d\'un utilisateur',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur (défaut: vous)', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'banner',
+        description: 'Afficher la bannière d\'un utilisateur',
+        options: [
+          { name: 'membre', description: 'L\'utilisateur (défaut: vous)', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'ping',
+        description: 'Afficher la latence du bot'
       }
     ];
 
