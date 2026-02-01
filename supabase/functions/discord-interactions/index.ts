@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 
 // Discord interaction types
 const INTERACTION_TYPE = {
@@ -1712,16 +1713,20 @@ async function requireLicense(supabase: any, guildId: string): Promise<Response 
 
 // ===== PAYMENT/BUY COMMANDS =====
 
-// Buy command - show payment info
-async function handleBuy(interaction: any, supabase: any) {
-  // Get payment config
-  const { data: config } = await supabase
-    .from('payment_config')
-    .select('*')
-    .eq('id', 'main')
-    .single();
+// Stripe price IDs
+const STRIPE_PRICES = {
+  standard: { id: 'price_1Sw28LDjzCKUlNssSDiXSoC5', name: 'Standard', duration: '30 jours', price: '5€' },
+  premium: { id: 'price_1Sw28bDjzCKUlNssT6OG8h18', name: 'Premium', duration: '90 jours', price: '12€' },
+  lifetime: { id: 'price_1Sw28qDjzCKUlNssNbTClXyy', name: 'Lifetime', duration: 'À vie', price: '25€' }
+};
 
-  if (!config || !config.paypal_email) {
+// Buy command - create Stripe payment links
+async function handleBuy(interaction: any, _supabase: any) {
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  const plan = getOption(interaction.data.options, 'plan') as string || 'standard';
+  const userId = interaction.member.user.id;
+
+  if (!stripeKey) {
     return ephemeral('', [{
       title: '❌ Paiement non configuré',
       description: 'Le système de paiement n\'est pas encore configuré.\nContactez le propriétaire du bot.',
@@ -1729,26 +1734,44 @@ async function handleBuy(interaction: any, supabase: any) {
     }]);
   }
 
-  return ephemeral('', [{
-    title: '🛒 Acheter une Licence',
-    description: 'Choisissez votre plan et effectuez le paiement via PayPal.',
-    color: 0x0070BA,
-    fields: [
-      { name: '📦 Plan Standard', value: `${config.price_standard || '5€'} - 30 jours`, inline: true },
-      { name: '⭐ Plan Premium', value: `${config.price_premium || '12€'} - 90 jours`, inline: true },
-      { name: '💎 Plan Lifetime', value: `${config.price_lifetime || '25€'} - À vie`, inline: true },
-      { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
-      { name: '💳 PayPal', value: `\`${config.paypal_email}\``, inline: false },
-      { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
-      { name: '📝 Instructions', value: 
-        '1️⃣ Envoyez le paiement au PayPal ci-dessus\n' +
-        '2️⃣ Indiquez votre **Discord ID** en note\n' +
-        '3️⃣ Indiquez le **plan choisi** en note\n' +
-        '4️⃣ Attendez la confirmation (généralement < 24h)\n' +
-        '5️⃣ Vous recevrez votre clé par DM', inline: false }
-    ],
-    footer: { text: 'Merci pour votre confiance !' }
-  }]);
+  const selectedPlan = STRIPE_PRICES[plan as keyof typeof STRIPE_PRICES];
+  if (!selectedPlan) {
+    return ephemeral('❌ Plan invalide. Choisissez: standard, premium, ou lifetime');
+  }
+
+  try {
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      line_items: [{ price: selectedPlan.id, quantity: 1 }],
+      mode: 'payment',
+      success_url: 'https://discord.com/channels/@me?payment=success',
+      cancel_url: 'https://discord.com/channels/@me?payment=cancelled',
+      metadata: { discord_user_id: userId, plan_type: plan }
+    });
+
+    return ephemeral('', [{
+      title: '🛒 Acheter une Licence',
+      description: `Tu as choisi le plan **${selectedPlan.name}** (${selectedPlan.duration}).`,
+      color: 0x635BFF,
+      fields: [
+        { name: '💰 Prix', value: selectedPlan.price, inline: true },
+        { name: '⏰ Durée', value: selectedPlan.duration, inline: true },
+        { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+        { name: '🔗 Lien de paiement', value: `**[Cliquez ici pour payer](${session.url})**`, inline: false },
+        { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+        { name: '✨ Après paiement', value: 
+          '1️⃣ Tu recevras ta clé automatiquement par DM\n' +
+          '2️⃣ Utilise `/license activate key:TA-CLÉ` sur ton serveur\n' +
+          '3️⃣ Profite du bot !', inline: false }
+      ],
+      footer: { text: '🔒 Paiement sécurisé par Stripe' }
+    }]);
+  } catch (error) {
+    console.error('Stripe error:', error);
+    return ephemeral('❌ Erreur lors de la création du paiement. Réessayez plus tard.');
+  }
 }
 
 // Redeem command - owner validates payment and sends license
