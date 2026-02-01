@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      sanctions: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          duration: string | null
+          expires_at: string | null
+          guild_id: string
+          id: string
+          moderator_id: string
+          reason: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          duration?: string | null
+          expires_at?: string | null
+          guild_id: string
+          id?: string
+          moderator_id: string
+          reason?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          duration?: string | null
+          expires_at?: string | null
+          guild_id?: string
+          id?: string
+          moderator_id?: string
+          reason?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stats_config: {
         Row: {
           id: string
@@ -65,6 +104,33 @@ export type Database = {
           phone?: string
           status?: string
           username?: string
+        }
+        Relationships: []
+      }
+      temp_roles: {
+        Row: {
+          created_at: string
+          expires_at: string
+          guild_id: string
+          id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          guild_id: string
+          id?: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          guild_id?: string
+          id?: string
+          role_id?: string
+          user_id?: string
         }
         Relationships: []
       }
