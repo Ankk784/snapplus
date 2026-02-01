@@ -1710,6 +1710,155 @@ async function requireLicense(supabase: any, guildId: string): Promise<Response 
   return null; // License is valid
 }
 
+// ===== PAYMENT/BUY COMMANDS =====
+
+// Buy command - show payment info
+async function handleBuy(interaction: any, supabase: any) {
+  // Get payment config
+  const { data: config } = await supabase
+    .from('payment_config')
+    .select('*')
+    .eq('id', 'main')
+    .single();
+
+  if (!config || !config.paypal_email) {
+    return ephemeral('', [{
+      title: '❌ Paiement non configuré',
+      description: 'Le système de paiement n\'est pas encore configuré.\nContactez le propriétaire du bot.',
+      color: 0xEF4444
+    }]);
+  }
+
+  return ephemeral('', [{
+    title: '🛒 Acheter une Licence',
+    description: 'Choisissez votre plan et effectuez le paiement via PayPal.',
+    color: 0x0070BA,
+    fields: [
+      { name: '📦 Plan Standard', value: `${config.price_standard || '5€'} - 30 jours`, inline: true },
+      { name: '⭐ Plan Premium', value: `${config.price_premium || '12€'} - 90 jours`, inline: true },
+      { name: '💎 Plan Lifetime', value: `${config.price_lifetime || '25€'} - À vie`, inline: true },
+      { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+      { name: '💳 PayPal', value: `\`${config.paypal_email}\``, inline: false },
+      { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+      { name: '📝 Instructions', value: 
+        '1️⃣ Envoyez le paiement au PayPal ci-dessus\n' +
+        '2️⃣ Indiquez votre **Discord ID** en note\n' +
+        '3️⃣ Indiquez le **plan choisi** en note\n' +
+        '4️⃣ Attendez la confirmation (généralement < 24h)\n' +
+        '5️⃣ Vous recevrez votre clé par DM', inline: false }
+    ],
+    footer: { text: 'Merci pour votre confiance !' }
+  }]);
+}
+
+// Redeem command - owner validates payment and sends license
+async function handleRedeem(interaction: any, supabase: any) {
+  const userId = getOption(interaction.data.options, 'user') as string;
+  const plan = getOption(interaction.data.options, 'plan') as string;
+
+  // Generate license key
+  const newKey = generateLicenseKey();
+  const durationDays = plan === 'lifetime' ? null : (plan === 'premium' ? 90 : 30);
+
+  // Insert into valid_licenses
+  const { error } = await supabase.from('valid_licenses').insert({
+    license_key: newKey,
+    plan_type: plan,
+    duration_days: durationDays
+  });
+
+  if (error) {
+    console.error('Redeem error:', error);
+    return ephemeral('❌ Erreur lors de la génération de la licence.');
+  }
+
+  // Try to DM the user
+  try {
+    // Create DM channel
+    const dmRes = await discordFetch('/users/@me/channels', {
+      method: 'POST',
+      body: JSON.stringify({ recipient_id: userId })
+    });
+    const dmChannel = await dmRes.json();
+
+    if (dmChannel.id) {
+      // Send the license key
+      const durationText = durationDays ? `${durationDays} jours` : 'À vie';
+      await discordFetch(`/channels/${dmChannel.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({
+          embeds: [{
+            title: '🎉 Votre Licence est prête !',
+            description: 'Merci pour votre achat ! Voici votre clé de licence :',
+            color: 0x22C55E,
+            fields: [
+              { name: '🔐 Clé de Licence', value: `\`\`\`${newKey}\`\`\``, inline: false },
+              { name: '📦 Plan', value: plan.charAt(0).toUpperCase() + plan.slice(1), inline: true },
+              { name: '⏰ Durée', value: durationText, inline: true },
+              { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
+              { name: '📝 Comment activer ?', value: 
+                '1️⃣ Allez sur votre serveur Discord\n' +
+                '2️⃣ Tapez `/license activate key:' + newKey + '`\n' +
+                '3️⃣ Profitez du bot !', inline: false }
+            ],
+            footer: { text: '⚠️ Conservez cette clé en lieu sûr !' }
+          }]
+        })
+      });
+    }
+  } catch (e) {
+    console.error('Failed to DM user:', e);
+  }
+
+  const durationText = durationDays ? `${durationDays} jours` : 'À vie';
+  return publicMsg('', [{
+    title: '✅ Licence envoyée !',
+    description: `La licence a été générée et envoyée à <@${userId}>.`,
+    color: 0x22C55E,
+    fields: [
+      { name: '🔐 Clé', value: `\`\`\`${newKey}\`\`\``, inline: false },
+      { name: '📦 Plan', value: plan.charAt(0).toUpperCase() + plan.slice(1), inline: true },
+      { name: '⏰ Durée', value: durationText, inline: true }
+    ]
+  }]);
+}
+
+// Set PayPal config
+async function handleSetPaypal(interaction: any, supabase: any) {
+  const email = getOption(interaction.data.options, 'email') as string;
+  const priceStandard = getOption(interaction.data.options, 'price_standard') as string | undefined;
+  const pricePremium = getOption(interaction.data.options, 'price_premium') as string | undefined;
+  const priceLifetime = getOption(interaction.data.options, 'price_lifetime') as string | undefined;
+
+  const updateData: any = { 
+    paypal_email: email,
+    updated_at: new Date().toISOString()
+  };
+  if (priceStandard) updateData.price_standard = priceStandard;
+  if (pricePremium) updateData.price_premium = pricePremium;
+  if (priceLifetime) updateData.price_lifetime = priceLifetime;
+
+  const { error } = await supabase
+    .from('payment_config')
+    .upsert({ id: 'main', ...updateData });
+
+  if (error) {
+    console.error('SetPaypal error:', error);
+    return ephemeral('❌ Erreur lors de la configuration.');
+  }
+
+  return ephemeral('', [{
+    title: '✅ Configuration PayPal mise à jour',
+    color: 0x22C55E,
+    fields: [
+      { name: '📧 Email', value: email, inline: true },
+      ...(priceStandard ? [{ name: '📦 Standard', value: priceStandard, inline: true }] : []),
+      ...(pricePremium ? [{ name: '⭐ Premium', value: pricePremium, inline: true }] : []),
+      ...(priceLifetime ? [{ name: '💎 Lifetime', value: priceLifetime, inline: true }] : [])
+    ]
+  }]);
+}
+
 // ===== OWNER/BUYER COMMANDS =====
 
 // Buyer command - list or add buyers
@@ -2331,11 +2480,11 @@ serve(async (req) => {
   if (interaction.type === INTERACTION_TYPE.APPLICATION_COMMAND) {
     const cmd = interaction.data.name;
 
-    // Commands that don't require license
-    const freeCmds = ['license', 'help', 'ping'];
+    // Commands that don't require license (free commands + purchase commands)
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal'];
     
-    // Check license for all other commands
-    if (!freeCmds.includes(cmd)) {
+    // Check license for all other commands (only if in a guild)
+    if (!freeCmds.includes(cmd) && interaction.guild_id) {
       const licenseCheck = await requireLicense(supabase, interaction.guild_id);
       if (licenseCheck) return licenseCheck;
     }
@@ -2416,8 +2565,11 @@ serve(async (req) => {
         case 'banner': return handleBanner(interaction);
         case 'ping': return handlePing(interaction);
 
-        // License command (always available)
+        // License & Payment commands (always available)
         case 'license': return handleLicense(interaction, supabase);
+        case 'buy': return handleBuy(interaction, supabase);
+        case 'redeem': return handleRedeem(interaction, supabase);
+        case 'setpaypal': return handleSetPaypal(interaction, supabase);
 
         // Owner/Buyer commands
         case 'buyer': return handleBuyer(interaction, supabase);
