@@ -506,8 +506,15 @@ serve(async (req) => {
       },
       {
         name: 'buy',
-        description: 'Acheter une licence pour le bot',
-        dm_permission: true
+        description: 'Acheter une licence pour le bot (paiement Stripe)',
+        dm_permission: true,
+        options: [
+          { name: 'plan', description: 'Type de plan à acheter', type: 3, required: false, choices: [
+            { name: 'standard - 30 jours (5€)', value: 'standard' },
+            { name: 'premium - 90 jours (12€)', value: 'premium' },
+            { name: 'lifetime - À vie (25€)', value: 'lifetime' }
+          ]}
+        ]
       },
       {
         name: 'redeem',
