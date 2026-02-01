@@ -504,6 +504,35 @@ serve(async (req) => {
           { name: 'duration', description: 'Durée en jours (optionnel)', type: 4, required: false }
         ]
       },
+      {
+        name: 'buy',
+        description: 'Acheter une licence pour le bot',
+        dm_permission: true
+      },
+      {
+        name: 'redeem',
+        description: 'Valider un paiement et envoyer une licence (Owner)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'user', description: 'Utilisateur qui a payé', type: 6, required: true },
+          { name: 'plan', description: 'Type de plan acheté', type: 3, required: true, choices: [
+            { name: 'standard - 30 jours', value: 'standard' },
+            { name: 'premium - 90 jours', value: 'premium' },
+            { name: 'lifetime - À vie', value: 'lifetime' }
+          ]}
+        ]
+      },
+      {
+        name: 'setpaypal',
+        description: 'Configurer les infos PayPal pour /buy (Owner)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'email', description: 'Email PayPal', type: 3, required: true },
+          { name: 'price_standard', description: 'Prix plan Standard (ex: 5€)', type: 3, required: false },
+          { name: 'price_premium', description: 'Prix plan Premium (ex: 12€)', type: 3, required: false },
+          { name: 'price_lifetime', description: 'Prix plan Lifetime (ex: 25€)', type: 3, required: false }
+        ]
+      },
       // --- CONFIGURATION AVANCÉE ---
       {
         name: 'counter',
