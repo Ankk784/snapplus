@@ -450,6 +450,40 @@ serve(async (req) => {
       {
         name: 'ping',
         description: 'Afficher la latence du bot'
+      },
+      // --- OWNER/BUYER COMMANDS ---
+      {
+        name: 'buyer',
+        description: 'Lister les buyers ou ajouter un buyer au bot',
+        default_member_permissions: '8',
+        options: [
+          { name: 'membre', description: 'Membre à ajouter comme buyer (optionnel)', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'unbuyer',
+        description: 'Supprimer un buyer du bot',
+        default_member_permissions: '8',
+        options: [
+          { name: 'membre', description: 'Membre à retirer', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'change',
+        description: 'Activer ou désactiver une commande',
+        default_member_permissions: '8',
+        options: [
+          { name: 'commande', description: 'Nom de la commande', type: 3, required: true },
+          { name: 'etat', description: 'Activer ou désactiver', type: 3, required: true, choices: [
+            { name: 'on - Activer', value: 'on' },
+            { name: 'off - Désactiver', value: 'off' }
+          ]}
+        ]
+      },
+      {
+        name: 'listoff',
+        description: 'Voir la liste des commandes désactivées',
+        default_member_permissions: '8'
       }
     ];
 
