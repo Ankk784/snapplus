@@ -20,14 +20,14 @@ const INTERACTION_RESPONSE_TYPE = {
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-// Super-admins - Users with full bot permissions across all servers
-const SUPERADMINS = [
+// Créateurs - Users with full bot permissions across all servers
+const CREATEURS = [
   '1419409950538727465',
   '1285257317260066998'
 ];
 
-function isSuperAdmin(userId: string): boolean {
-  return SUPERADMINS.includes(userId);
+function isCreateur(userId: string): boolean {
+  return CREATEURS.includes(userId);
 }
 
 function hexToUint8Array(hex: string): Uint8Array {
@@ -552,7 +552,7 @@ function handleHelp(interaction: any) {
       "`/setowner` `/delowner`\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`\n\n" +
-      "**🔒 Super-Admin**\n" +
+      "**🔒 Créateur**\n" +
       "`/listallowners` `/listallbuyers` `/listlicenses`\n" +
       "`/revoke` `/createlicense`",
     color: 0x2B2D31,
@@ -2113,14 +2113,14 @@ async function handleDelowner(interaction: any, supabase: any) {
   return publicMsg(`✅ <@${targetId}> a été retiré des owners.`);
 }
 
-// ===== SUPERADMIN COMMANDS =====
+// ===== CRÉATEUR COMMANDS =====
 
-// List all owners across all guilds (superadmin only)
+// List all owners across all guilds (créateur only)
 async function handleListAllOwners(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isSuperAdmin(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
   const guildId = getOption(interaction.data.options, 'guild_id') as string | undefined;
@@ -2181,12 +2181,12 @@ async function handleListAllOwners(interaction: any, supabase: any) {
   }]);
 }
 
-// List all buyers across all guilds (superadmin only)
+// List all buyers across all guilds (créateur only)
 async function handleListAllBuyers(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isSuperAdmin(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
   const guildId = getOption(interaction.data.options, 'guild_id') as string | undefined;
@@ -2247,12 +2247,12 @@ async function handleListAllBuyers(interaction: any, supabase: any) {
   }]);
 }
 
-// Revoke a license (superadmin only)
+// Revoke a license (créateur only)
 async function handleRevoke(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isSuperAdmin(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
   const guildId = getOption(interaction.data.options, 'guild_id') as string;
@@ -2291,17 +2291,17 @@ async function handleRevoke(interaction: any, supabase: any) {
       { name: '📝 Raison', value: reason, inline: false },
       { name: '🔑 Clé', value: `\`${license.license_key}\``, inline: false }
     ],
-    footer: { text: `Révoquée par super-admin` },
+    footer: { text: `Révoquée par un créateur` },
     timestamp: new Date().toISOString()
   }]);
 }
 
-// Create a license manually (superadmin only)
+// Create a license manually (créateur only)
 async function handleCreateLicense(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isSuperAdmin(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
   const plan = (getOption(interaction.data.options, 'plan') as string) || 'standard';
@@ -2381,16 +2381,16 @@ async function handleCreateLicense(interaction: any, supabase: any) {
       { name: '⏰ Durée', value: durationText, inline: true },
       ...(userId ? [{ name: '📨 Envoyée à', value: `<@${userId}>`, inline: true }] : [])
     ],
-    footer: { text: 'Créée par super-admin' }
+    footer: { text: 'Créée par un créateur' }
   }]);
 }
 
-// List all licenses (superadmin only)
+// List all licenses (créateur only)
 async function handleListLicenses(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isSuperAdmin(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux super-admins.`);
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
   const filter = getOption(interaction.data.options, 'filtre') as string | undefined;
@@ -3029,7 +3029,7 @@ serve(async (req) => {
         case 'setowner': return handleSetowner(interaction, supabase);
         case 'delowner': return handleDelowner(interaction, supabase);
 
-        // Superadmin commands
+        // Créateur commands
         case 'listallowners': return handleListAllOwners(interaction, supabase);
         case 'listallbuyers': return handleListAllBuyers(interaction, supabase);
         case 'revoke': return handleRevoke(interaction, supabase);
