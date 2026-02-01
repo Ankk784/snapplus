@@ -21,6 +21,10 @@ serve(async (req) => {
     // Define slash commands
     const commands = [
       {
+        name: 'help',
+        description: 'Affiche la liste des commandes disponibles'
+      },
+      {
         name: 'say',
         description: 'Envoie un message dans le salon',
         options: [
@@ -157,6 +161,70 @@ serve(async (req) => {
         default_member_permissions: '8', // ADMINISTRATOR
         options: [
           { name: 'membre', description: 'L\'utilisateur', type: 6, required: true }
+        ]
+      },
+      // --- SERVER GESTION COMMANDS ---
+      {
+        name: 'massiverole',
+        description: 'Ajouter un rôle à tous les membres du serveur',
+        default_member_permissions: '8', // ADMINISTRATOR
+        options: [
+          { name: 'role', description: 'Le rôle à ajouter', type: 8, required: true }
+        ]
+      },
+      {
+        name: 'unmassiverole',
+        description: 'Retirer un rôle de tous les membres du serveur',
+        default_member_permissions: '8',
+        options: [
+          { name: 'role', description: 'Le rôle à retirer', type: 8, required: true }
+        ]
+      },
+      {
+        name: 'renew',
+        description: 'Recréer un salon (le supprimer et le recréer identique)',
+        default_member_permissions: '16', // MANAGE_CHANNELS
+        options: [
+          { name: 'salon', description: 'Salon à recréer (défaut: actuel)', type: 7, required: false }
+        ]
+      },
+      {
+        name: 'embed',
+        description: 'Créer un embed personnalisé',
+        default_member_permissions: '8192', // MANAGE_MESSAGES
+        options: [
+          { name: 'titre', description: 'Titre de l\'embed', type: 3, required: true },
+          { name: 'description', description: 'Description de l\'embed', type: 3, required: true },
+          { name: 'couleur', description: 'Couleur hex (ex: #FF0000)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'serverinfo',
+        description: 'Affiche les informations du serveur',
+        default_member_permissions: null
+      },
+      {
+        name: 'userinfo',
+        description: 'Affiche les informations d\'un utilisateur',
+        default_member_permissions: null,
+        options: [
+          { name: 'membre', description: 'L\'utilisateur (défaut: vous)', type: 6, required: false }
+        ]
+      },
+      {
+        name: 'roleinfo',
+        description: 'Affiche les informations d\'un rôle',
+        default_member_permissions: null,
+        options: [
+          { name: 'role', description: 'Le rôle', type: 8, required: true }
+        ]
+      },
+      {
+        name: 'bringall',
+        description: 'Déplacer tous les utilisateurs d\'un salon vocal vers un autre',
+        default_member_permissions: '16777216', // MOVE_MEMBERS
+        options: [
+          { name: 'salon', description: 'Salon vocal de destination', type: 7, required: true }
         ]
       }
     ];
