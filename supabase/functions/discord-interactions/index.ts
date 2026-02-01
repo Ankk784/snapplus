@@ -2113,6 +2113,97 @@ async function handleDelowner(interaction: any, supabase: any) {
   return publicMsg(`✅ <@${targetId}> a été retiré des owners.`);
 }
 
+// ===== WHITE-LABEL COMMANDS =====
+
+// Set bot token for white-label
+async function handleSetToken(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const userId = interaction.member?.user?.id;
+
+  // Get guild to check ownership
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+
+  // Only guild owner or créateurs can set token
+  if (guild.owner_id !== userId && !isCreateur(userId)) {
+    return ephemeral(`❌ Seul le propriétaire du serveur peut configurer le bot white-label.`);
+  }
+
+  const token = getOption(interaction.data.options, 'token') as string;
+  const appId = getOption(interaction.data.options, 'app_id') as string;
+  const publicKey = getOption(interaction.data.options, 'public_key') as string | undefined;
+
+  // Try to validate the token by fetching bot info
+  try {
+    const testRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { 'Authorization': `Bot ${token}` }
+    });
+
+    if (!testRes.ok) {
+      return ephemeral(`❌ Token invalide. Vérifie que le token est correct.`);
+    }
+
+    const botUser = await testRes.json();
+
+    // Save to database
+    await supabase.from('guild_bot_config').upsert({
+      guild_id: guildId,
+      bot_token: token,
+      bot_application_id: appId,
+      bot_public_key: publicKey || null,
+      bot_name: botUser.username,
+      configured_by: userId,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'guild_id' });
+
+    return ephemeral('', [{
+      title: '✅ Bot White-Label Configuré',
+      description: `Le bot **${botUser.username}** est maintenant configuré pour ce serveur !`,
+      color: 0x22C55E,
+      fields: [
+        { name: '📛 Nom', value: botUser.username, inline: true },
+        { name: '🆔 ID', value: botUser.id, inline: true },
+        { name: '📋 App ID', value: appId, inline: true }
+      ],
+      footer: { text: '⚠️ Note: Le white-label complet nécessite un hébergement VPS' }
+    }]);
+  } catch (error) {
+    return ephemeral(`❌ Erreur lors de la validation du token.`);
+  }
+}
+
+// Remove white-label config
+async function handleRemoveToken(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const userId = interaction.member?.user?.id;
+
+  // Get guild to check ownership
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+
+  // Only guild owner or créateurs can remove token
+  if (guild.owner_id !== userId && !isCreateur(userId)) {
+    return ephemeral(`❌ Seul le propriétaire du serveur peut supprimer la configuration white-label.`);
+  }
+
+  const { data: existing } = await supabase
+    .from('guild_bot_config')
+    .select('bot_name')
+    .eq('guild_id', guildId)
+    .single();
+
+  if (!existing) {
+    return ephemeral(`❌ Aucune configuration white-label trouvée pour ce serveur.`);
+  }
+
+  await supabase
+    .from('guild_bot_config')
+    .delete()
+    .eq('guild_id', guildId);
+
+  return ephemeral(`✅ Configuration white-label supprimée. Le bot principal sera utilisé.`);
+}
+
 // ===== CRÉATEUR COMMANDS =====
 
 // List all owners across all guilds (créateur only)
@@ -2930,8 +3021,8 @@ serve(async (req) => {
   if (interaction.type === INTERACTION_TYPE.APPLICATION_COMMAND) {
     const cmd = interaction.data.name;
 
-    // Commands that don't require license (free commands + purchase commands + créateur commands)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses'];
+    // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -3038,6 +3129,10 @@ serve(async (req) => {
         case 'revoke': return handleRevoke(interaction, supabase);
         case 'createlicense': return handleCreateLicense(interaction, supabase);
         case 'listlicenses': return handleListLicenses(interaction, supabase);
+
+        // White-label commands
+        case 'settoken': return handleSetToken(interaction, supabase);
+        case 'removetoken': return handleRemoveToken(interaction, supabase);
 
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);

@@ -149,6 +149,42 @@ export type Database = {
         }
         Relationships: []
       }
+      guild_bot_config: {
+        Row: {
+          bot_application_id: string | null
+          bot_name: string | null
+          bot_public_key: string | null
+          bot_token: string | null
+          configured_by: string
+          created_at: string
+          guild_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          bot_application_id?: string | null
+          bot_name?: string | null
+          bot_public_key?: string | null
+          bot_token?: string | null
+          configured_by: string
+          created_at?: string
+          guild_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          bot_application_id?: string | null
+          bot_name?: string | null
+          bot_public_key?: string | null
+          bot_token?: string | null
+          configured_by?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guild_config: {
         Row: {
           antilink_enabled: boolean | null
