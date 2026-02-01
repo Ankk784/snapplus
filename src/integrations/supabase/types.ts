@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_buyers: {
+        Row: {
+          added_by: string
+          created_at: string
+          guild_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          guild_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      disabled_commands: {
+        Row: {
+          command_name: string
+          created_at: string
+          disabled_by: string
+          guild_id: string
+          id: string
+        }
+        Insert: {
+          command_name: string
+          created_at?: string
+          disabled_by: string
+          guild_id: string
+          id?: string
+        }
+        Update: {
+          command_name?: string
+          created_at?: string
+          disabled_by?: string
+          guild_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       guild_config: {
         Row: {
           antilink_enabled: boolean | null

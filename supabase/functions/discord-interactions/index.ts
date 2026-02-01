@@ -532,6 +532,11 @@ function handleHelp(interaction: any) {
       "`/antiraid` `/captcha` `/antilink` `/antispam`\n" +
       "`/antilink-ignore` `/antilink-sanction` `/antilink-type`\n" +
       "`/antispam-config` `/settings`\n\n" +
+      "**👑 Propriétaire**\n" +
+      "`/buyer [membre]` - Lister ou ajouter un buyer\n" +
+      "`/unbuyer <membre>` - Supprimer un buyer\n" +
+      "`/change <commande> <on/off>` - Activer/désactiver une commande\n" +
+      "`/listoff` - Voir les commandes désactivées\n\n" +
       "**🔧 Utilitaires**\n" +
       "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`",
     color: 0x2B2D31,
@@ -1493,6 +1498,154 @@ async function handleSettings(interaction: any, supabase: any) {
   return ephemeral('', [embed]);
 }
 
+// ===== OWNER/BUYER COMMANDS =====
+
+// Buyer command - list or add buyers
+async function handleBuyer(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
+  const targetId = getOption(interaction.data.options, 'membre') as string | undefined;
+
+  if (!targetId) {
+    // List buyers
+    const { data: buyers } = await supabase
+      .from('bot_buyers')
+      .select('*')
+      .eq('guild_id', guildId)
+      .order('created_at', { ascending: false });
+
+    if (!buyers || buyers.length === 0) {
+      return ephemeral(`📋 Aucun buyer configuré sur ce serveur.`);
+    }
+
+    const buyerList = buyers.map((b: any, i: number) => {
+      const date = new Date(b.created_at).toLocaleDateString('fr-FR');
+      return `**${i + 1}.** <@${b.user_id}> - Ajouté le ${date}`;
+    }).join('\n');
+
+    return ephemeral('', [{
+      title: '👑 Liste des Buyers',
+      description: buyerList,
+      color: 0xFFD700,
+      footer: { text: `Total: ${buyers.length} buyer(s)` }
+    }]);
+  }
+
+  // Add buyer
+  const { error } = await supabase.from('bot_buyers').insert({
+    guild_id: guildId,
+    user_id: targetId,
+    added_by: modId
+  });
+
+  if (error && error.code === '23505') {
+    return ephemeral(`❌ <@${targetId}> est déjà un buyer.`);
+  }
+
+  return publicMsg(`✅ <@${targetId}> a été ajouté comme buyer.`);
+}
+
+// Unbuyer command
+async function handleUnbuyer(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const targetId = getOption(interaction.data.options, 'membre') as string;
+
+  const { data, error } = await supabase
+    .from('bot_buyers')
+    .delete()
+    .eq('guild_id', guildId)
+    .eq('user_id', targetId)
+    .select();
+
+  if (!data || data.length === 0) {
+    return ephemeral(`❌ <@${targetId}> n'est pas un buyer.`);
+  }
+
+  return publicMsg(`✅ <@${targetId}> a été retiré des buyers.`);
+}
+
+// Change command - enable/disable commands
+async function handleChange(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
+  const commandName = (getOption(interaction.data.options, 'commande') as string).toLowerCase();
+  const state = getOption(interaction.data.options, 'etat') as string;
+
+  // Protected commands that cannot be disabled
+  const protectedCommands = ['help', 'buyer', 'unbuyer', 'change', 'listoff', 'settings'];
+  if (protectedCommands.includes(commandName)) {
+    return ephemeral(`❌ La commande \`${commandName}\` ne peut pas être désactivée.`);
+  }
+
+  if (state === 'off') {
+    // Disable command
+    const { error } = await supabase.from('disabled_commands').insert({
+      guild_id: guildId,
+      command_name: commandName,
+      disabled_by: modId
+    });
+
+    if (error && error.code === '23505') {
+      return ephemeral(`❌ La commande \`${commandName}\` est déjà désactivée.`);
+    }
+
+    return publicMsg(`🔴 La commande \`/${commandName}\` a été **désactivée**.`);
+  } else {
+    // Enable command
+    const { data } = await supabase
+      .from('disabled_commands')
+      .delete()
+      .eq('guild_id', guildId)
+      .eq('command_name', commandName)
+      .select();
+
+    if (!data || data.length === 0) {
+      return ephemeral(`❌ La commande \`${commandName}\` n'est pas désactivée.`);
+    }
+
+    return publicMsg(`🟢 La commande \`/${commandName}\` a été **activée**.`);
+  }
+}
+
+// Listoff command - list disabled commands
+async function handleListoff(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+
+  const { data: disabled } = await supabase
+    .from('disabled_commands')
+    .select('*')
+    .eq('guild_id', guildId)
+    .order('created_at', { ascending: false });
+
+  if (!disabled || disabled.length === 0) {
+    return ephemeral(`✅ Aucune commande désactivée sur ce serveur.`);
+  }
+
+  const list = disabled.map((d: any, i: number) => {
+    const date = new Date(d.created_at).toLocaleDateString('fr-FR');
+    return `**${i + 1}.** \`/${d.command_name}\` - Désactivée le ${date}`;
+  }).join('\n');
+
+  return ephemeral('', [{
+    title: '🔴 Commandes Désactivées',
+    description: list,
+    color: 0xEF4444,
+    footer: { text: `Total: ${disabled.length} commande(s) désactivée(s)` }
+  }]);
+}
+
+// Check if command is disabled
+async function isCommandDisabled(supabase: any, guildId: string, commandName: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('disabled_commands')
+    .select('id')
+    .eq('guild_id', guildId)
+    .eq('command_name', commandName)
+    .single();
+  
+  return !!data;
+}
+
 // Ticket config
 async function handleTicketConfig(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
@@ -1668,6 +1821,12 @@ serve(async (req) => {
         case 'avatar': return handleAvatar(interaction);
         case 'banner': return handleBanner(interaction);
         case 'ping': return handlePing(interaction);
+
+        // Owner/Buyer commands
+        case 'buyer': return handleBuyer(interaction, supabase);
+        case 'unbuyer': return handleUnbuyer(interaction, supabase);
+        case 'change': return handleChange(interaction, supabase);
+        case 'listoff': return handleListoff(interaction, supabase);
 
         default:
           return ephemeral("❌ Commande inconnue.");
