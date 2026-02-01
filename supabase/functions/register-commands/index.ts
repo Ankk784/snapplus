@@ -485,6 +485,25 @@ serve(async (req) => {
         description: 'Voir la liste des commandes désactivées',
         default_member_permissions: '8'
       },
+      {
+        name: 'license',
+        description: 'Gérer la licence du bot',
+        default_member_permissions: '8',
+        options: [
+          { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
+            { name: 'info - Voir les infos de licence', value: 'info' },
+            { name: 'activate - Activer une licence', value: 'activate' },
+            { name: 'generate - Générer une clé (Owner)', value: 'generate' }
+          ]},
+          { name: 'key', description: 'Clé de licence à activer', type: 3, required: false },
+          { name: 'plan', description: 'Type de plan pour la génération', type: 3, required: false, choices: [
+            { name: 'standard - Plan Standard', value: 'standard' },
+            { name: 'premium - Plan Premium', value: 'premium' },
+            { name: 'lifetime - Plan à vie', value: 'lifetime' }
+          ]},
+          { name: 'duration', description: 'Durée en jours (optionnel)', type: 4, required: false }
+        ]
+      },
       // --- CONFIGURATION AVANCÉE ---
       {
         name: 'counter',
