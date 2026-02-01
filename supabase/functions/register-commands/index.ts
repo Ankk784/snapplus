@@ -713,6 +713,22 @@ serve(async (req) => {
             { name: 'all - Toutes', value: 'all' }
           ]}
         ]
+      },
+      // --- WHITE-LABEL ---
+      {
+        name: 'settoken',
+        description: '⚙️ Configurer votre bot white-label (propriétaire uniquement)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'token', description: 'Token de votre bot Discord', type: 3, required: true },
+          { name: 'app_id', description: 'Application ID de votre bot', type: 3, required: true },
+          { name: 'public_key', description: 'Public Key (optionnel)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'removetoken',
+        description: '⚙️ Supprimer la configuration white-label',
+        default_member_permissions: '8'
       }
     ];
 
