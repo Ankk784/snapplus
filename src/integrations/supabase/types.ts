@@ -254,6 +254,33 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_config: {
+        Row: {
+          id: string
+          paypal_email: string | null
+          price_lifetime: string | null
+          price_premium: string | null
+          price_standard: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          paypal_email?: string | null
+          price_lifetime?: string | null
+          price_premium?: string | null
+          price_standard?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          paypal_email?: string | null
+          price_lifetime?: string | null
+          price_premium?: string | null
+          price_standard?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       piconly_channels: {
         Row: {
           channel_id: string
