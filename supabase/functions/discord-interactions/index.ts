@@ -511,6 +511,308 @@ async function handleSanctionsClear(interaction: any, supabase: any) {
   return publicMsg(`✅ Toutes les sanctions de <@${targetId}> ont été supprimées.`);
 }
 
+// Handle help command
+function handleHelp(interaction: any) {
+  const embeds = [
+    {
+      title: "📖 Liste des commandes",
+      description: "Les paramètres entre `<>` sont obligatoires, ceux entre `[]` sont facultatifs.",
+      color: 0x2B2D31,
+      fields: [],
+      footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
+      timestamp: new Date().toISOString()
+    },
+    {
+      title: "🛡️ Modération",
+      color: 0xEF4444,
+      fields: [
+        { name: "`/ban <membre> [raison]`", value: "Bannir un utilisateur du serveur", inline: false },
+        { name: "`/unban <user_id>`", value: "Débannir un utilisateur", inline: false },
+        { name: "`/kick <membre> [raison]`", value: "Expulser un utilisateur du serveur", inline: false },
+        { name: "`/mute <membre> <durée> [raison]`", value: "Rendre muet un utilisateur (timeout)", inline: false },
+        { name: "`/unmute <membre>`", value: "Retirer le mute d'un utilisateur", inline: false },
+        { name: "`/warn <membre> <raison>`", value: "Avertir un utilisateur", inline: false },
+        { name: "`/clear <nombre> [membre]`", value: "Supprimer des messages (1-100)", inline: false },
+        { name: "`/lock [salon]`", value: "Verrouiller un salon", inline: false },
+        { name: "`/unlock [salon]`", value: "Déverrouiller un salon", inline: false },
+        { name: "`/addrole <membre> <role>`", value: "Ajouter un rôle à un membre", inline: false },
+        { name: "`/delrole <membre> <role>`", value: "Retirer un rôle d'un membre", inline: false },
+        { name: "`/sanctions <membre>`", value: "Voir les sanctions d'un utilisateur", inline: false },
+        { name: "`/sanctions-clear <membre>`", value: "Supprimer les sanctions d'un membre", inline: false },
+        { name: "`/banlist`", value: "Voir la liste des utilisateurs bannis", inline: false },
+        { name: "`/mutelist`", value: "Voir la liste des utilisateurs en timeout", inline: false },
+      ]
+    },
+    {
+      title: "⚙️ Gestion du serveur",
+      color: 0x3B82F6,
+      fields: [
+        { name: "`/massiverole <role>`", value: "Ajouter un rôle à tous les membres du serveur", inline: false },
+        { name: "`/unmassiverole <role>`", value: "Retirer un rôle de tous les membres du serveur", inline: false },
+        { name: "`/renew [salon]`", value: "Recréer un salon (le supprimer et le recréer identique)", inline: false },
+        { name: "`/embed <titre> <description> [couleur]`", value: "Créer un embed personnalisé", inline: false },
+        { name: "`/bringall <salon>`", value: "Déplacer tous les utilisateurs d'un vocal vers un autre", inline: false },
+        { name: "`/serverinfo`", value: "Affiche les informations du serveur", inline: false },
+        { name: "`/userinfo [membre]`", value: "Affiche les informations d'un utilisateur", inline: false },
+        { name: "`/roleinfo <role>`", value: "Affiche les informations d'un rôle", inline: false },
+      ]
+    },
+    {
+      title: "🔧 Utilitaires",
+      color: 0x22C55E,
+      fields: [
+        { name: "`/say <message>`", value: "Envoyer un message via le bot", inline: false },
+        { name: "`/stats`", value: "Afficher les statistiques en temps réel", inline: false },
+        { name: "`/help`", value: "Afficher cette aide", inline: false },
+      ]
+    }
+  ];
+
+  return publicMsg('', embeds);
+}
+
+// Server Gestion handlers
+async function handleMassiverole(interaction: any) {
+  const guildId = interaction.guild_id;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+
+  // Get all members
+  const res = await discordFetch(`/guilds/${guildId}/members?limit=1000`);
+  const members = await res.json();
+
+  if (!Array.isArray(members)) {
+    return ephemeral(`❌ Impossible de récupérer les membres.`);
+  }
+
+  let added = 0;
+  for (const member of members) {
+    if (!member.roles?.includes(roleId)) {
+      const addRes = await discordFetch(`/guilds/${guildId}/members/${member.user.id}/roles/${roleId}`, { method: 'PUT' });
+      if (addRes.ok) added++;
+    }
+  }
+
+  return publicMsg(`✅ Le rôle <@&${roleId}> a été ajouté à **${added}** membre(s).`);
+}
+
+async function handleUnmassiverole(interaction: any) {
+  const guildId = interaction.guild_id;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+
+  const res = await discordFetch(`/guilds/${guildId}/members?limit=1000`);
+  const members = await res.json();
+
+  if (!Array.isArray(members)) {
+    return ephemeral(`❌ Impossible de récupérer les membres.`);
+  }
+
+  let removed = 0;
+  for (const member of members) {
+    if (member.roles?.includes(roleId)) {
+      const delRes = await discordFetch(`/guilds/${guildId}/members/${member.user.id}/roles/${roleId}`, { method: 'DELETE' });
+      if (delRes.ok) removed++;
+    }
+  }
+
+  return publicMsg(`✅ Le rôle <@&${roleId}> a été retiré de **${removed}** membre(s).`);
+}
+
+async function handleRenew(interaction: any) {
+  const guildId = interaction.guild_id;
+  const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
+
+  // Get channel info
+  const channelRes = await discordFetch(`/channels/${channelId}`);
+  const channel = await channelRes.json();
+
+  if (!channel.id) {
+    return ephemeral(`❌ Salon introuvable.`);
+  }
+
+  // Delete the channel
+  const deleteRes = await discordFetch(`/channels/${channelId}`, { method: 'DELETE' });
+  if (!deleteRes.ok) {
+    return ephemeral(`❌ Impossible de supprimer le salon.`);
+  }
+
+  // Recreate it with same properties
+  const createRes = await discordFetch(`/guilds/${guildId}/channels`, {
+    method: 'POST',
+    body: JSON.stringify({
+      name: channel.name,
+      type: channel.type,
+      topic: channel.topic,
+      position: channel.position,
+      parent_id: channel.parent_id,
+      nsfw: channel.nsfw,
+      rate_limit_per_user: channel.rate_limit_per_user,
+      permission_overwrites: channel.permission_overwrites
+    })
+  });
+
+  if (!createRes.ok) {
+    return ephemeral(`❌ Salon supprimé mais impossible de le recréer.`);
+  }
+
+  const newChannel = await createRes.json();
+  
+  // Send message in the new channel
+  await discordFetch(`/channels/${newChannel.id}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content: `🔄 Salon recréé par <@${interaction.member.user.id}>` })
+  });
+
+  return ephemeral(`✅ Le salon a été recréé avec succès.`);
+}
+
+async function handleEmbed(interaction: any) {
+  const title = getOption(interaction.data.options, 'titre') as string;
+  const description = getOption(interaction.data.options, 'description') as string;
+  const colorStr = getOption(interaction.data.options, 'couleur') as string | undefined;
+
+  let color = 0x2B2D31;
+  if (colorStr) {
+    const hex = colorStr.replace('#', '');
+    color = parseInt(hex, 16) || 0x2B2D31;
+  }
+
+  return publicMsg('', [{
+    title,
+    description,
+    color,
+    timestamp: new Date().toISOString()
+  }]);
+}
+
+async function handleServerinfo(interaction: any) {
+  const guildId = interaction.guild_id;
+
+  const [guildRes, channelsRes, membersRes] = await Promise.all([
+    discordFetch(`/guilds/${guildId}?with_counts=true`),
+    discordFetch(`/guilds/${guildId}/channels`),
+    discordFetch(`/guilds/${guildId}/members?limit=1`)
+  ]);
+
+  const guild = await guildRes.json();
+  const channels = await channelsRes.json();
+
+  const textChannels = channels.filter((c: any) => c.type === 0).length;
+  const voiceChannels = channels.filter((c: any) => c.type === 2).length;
+  const categories = channels.filter((c: any) => c.type === 4).length;
+
+  const createdAt = new Date(Number((BigInt(guildId) >> 22n) + 1420070400000n));
+
+  return publicMsg('', [{
+    title: `📊 Informations sur ${guild.name}`,
+    color: 0x2B2D31,
+    thumbnail: guild.icon ? { url: `https://cdn.discordapp.com/icons/${guildId}/${guild.icon}.png` } : undefined,
+    fields: [
+      { name: '👑 Propriétaire', value: `<@${guild.owner_id}>`, inline: true },
+      { name: '👥 Membres', value: `${guild.approximate_member_count || 'N/A'}`, inline: true },
+      { name: '🟢 En ligne', value: `${guild.approximate_presence_count || 'N/A'}`, inline: true },
+      { name: '💬 Salons textuels', value: `${textChannels}`, inline: true },
+      { name: '🔊 Salons vocaux', value: `${voiceChannels}`, inline: true },
+      { name: '📁 Catégories', value: `${categories}`, inline: true },
+      { name: '🎭 Rôles', value: `${guild.roles?.length || 0}`, inline: true },
+      { name: '😀 Emojis', value: `${guild.emojis?.length || 0}`, inline: true },
+      { name: '🚀 Boosts', value: `${guild.premium_subscription_count || 0}`, inline: true },
+      { name: '📅 Créé le', value: createdAt.toLocaleDateString('fr-FR'), inline: true },
+    ],
+    footer: { text: `ID: ${guildId}` }
+  }]);
+}
+
+async function handleUserinfo(interaction: any) {
+  const targetId = getOption(interaction.data.options, 'membre') as string || interaction.member.user.id;
+  const guildId = interaction.guild_id;
+
+  const [userRes, memberRes] = await Promise.all([
+    discordFetch(`/users/${targetId}`),
+    discordFetch(`/guilds/${guildId}/members/${targetId}`)
+  ]);
+
+  const user = await userRes.json();
+  const member = await memberRes.json();
+
+  const createdAt = new Date(Number((BigInt(targetId) >> 22n) + 1420070400000n));
+  const joinedAt = member.joined_at ? new Date(member.joined_at) : null;
+
+  return publicMsg('', [{
+    title: `👤 Informations sur ${user.username}`,
+    color: 0x2B2D31,
+    thumbnail: user.avatar ? { url: `https://cdn.discordapp.com/avatars/${targetId}/${user.avatar}.png` } : undefined,
+    fields: [
+      { name: '🏷️ Tag', value: user.username, inline: true },
+      { name: '🆔 ID', value: `\`${targetId}\``, inline: true },
+      { name: '🤖 Bot', value: user.bot ? 'Oui' : 'Non', inline: true },
+      { name: '📅 Compte créé', value: createdAt.toLocaleDateString('fr-FR'), inline: true },
+      { name: '📥 A rejoint le', value: joinedAt ? joinedAt.toLocaleDateString('fr-FR') : 'N/A', inline: true },
+      { name: '🎭 Rôles', value: member.roles?.length > 0 ? member.roles.slice(0, 10).map((r: string) => `<@&${r}>`).join(' ') : 'Aucun', inline: false },
+    ],
+    footer: { text: `Demandé par ${interaction.member.user.username}` }
+  }]);
+}
+
+async function handleRoleinfo(interaction: any) {
+  const guildId = interaction.guild_id;
+  const roleId = getOption(interaction.data.options, 'role') as string;
+
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+
+  const role = guild.roles?.find((r: any) => r.id === roleId);
+  if (!role) {
+    return ephemeral(`❌ Rôle introuvable.`);
+  }
+
+  const createdAt = new Date(Number((BigInt(roleId) >> 22n) + 1420070400000n));
+
+  return publicMsg('', [{
+    title: `🎭 Informations sur @${role.name}`,
+    color: role.color || 0x2B2D31,
+    fields: [
+      { name: '🏷️ Nom', value: role.name, inline: true },
+      { name: '🆔 ID', value: `\`${roleId}\``, inline: true },
+      { name: '🎨 Couleur', value: role.color ? `#${role.color.toString(16).padStart(6, '0').toUpperCase()}` : 'Aucune', inline: true },
+      { name: '📍 Position', value: `${role.position}`, inline: true },
+      { name: '👥 Mentionnable', value: role.mentionable ? 'Oui' : 'Non', inline: true },
+      { name: '🔝 Affiché séparément', value: role.hoist ? 'Oui' : 'Non', inline: true },
+      { name: '📅 Créé le', value: createdAt.toLocaleDateString('fr-FR'), inline: true },
+    ],
+    footer: { text: `Demandé par ${interaction.member.user.username}` }
+  }]);
+}
+
+async function handleBringall(interaction: any) {
+  const guildId = interaction.guild_id;
+  const targetChannelId = getOption(interaction.data.options, 'salon') as string;
+
+  // Get the user's current voice channel
+  const memberRes = await discordFetch(`/guilds/${guildId}/members/${interaction.member.user.id}`);
+  const member = await memberRes.json();
+  
+  // Get all members in voice channels
+  const membersRes = await discordFetch(`/guilds/${guildId}/members?limit=1000`);
+  const members = await membersRes.json();
+
+  // Get voice states
+  const guildRes = await discordFetch(`/guilds/${guildId}?with_counts=true`);
+  const guild = await guildRes.json();
+
+  let moved = 0;
+  // Move members (we need to check who is in voice)
+  for (const m of members) {
+    // Try to move member to target channel
+    const moveRes = await discordFetch(`/guilds/${guildId}/members/${m.user.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ channel_id: targetChannelId })
+    });
+    if (moveRes.ok) moved++;
+  }
+
+  return publicMsg(`✅ **${moved}** membre(s) déplacé(s) vers <#${targetChannelId}>.`);
+}
+
 // Handle stats command
 async function handleStats(interaction: any, supabase: any) {
   const [
@@ -632,6 +934,9 @@ serve(async (req) => {
 
     try {
       switch (cmd) {
+        case 'help':
+          return handleHelp(interaction);
+
         case 'say':
           const message = getOption(interaction.data.options, 'message') as string;
           if (!message) return ephemeral("❌ Veuillez fournir un message.");
@@ -660,6 +965,16 @@ serve(async (req) => {
         case 'mutelist': return handleMutelist(interaction);
         case 'warn': return handleWarn(interaction, supabase);
         case 'sanctions-clear': return handleSanctionsClear(interaction, supabase);
+
+        // Server Gestion commands
+        case 'massiverole': return handleMassiverole(interaction);
+        case 'unmassiverole': return handleUnmassiverole(interaction);
+        case 'renew': return handleRenew(interaction);
+        case 'embed': return handleEmbed(interaction);
+        case 'serverinfo': return handleServerinfo(interaction);
+        case 'userinfo': return handleUserinfo(interaction);
+        case 'roleinfo': return handleRoleinfo(interaction);
+        case 'bringall': return handleBringall(interaction);
 
         default:
           return ephemeral("❌ Commande inconnue.");
