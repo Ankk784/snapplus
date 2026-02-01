@@ -17,9 +17,16 @@ export type Database = {
       guild_config: {
         Row: {
           antilink_enabled: boolean | null
+          antilink_ignored_channels: string[] | null
+          antilink_sanction: string | null
+          antilink_type: string | null
           antiraid_enabled: boolean | null
           antiraid_max_joins: number | null
           antiraid_timeframe: number | null
+          antispam_enabled: boolean | null
+          antispam_max_messages: number | null
+          antispam_sanction: string | null
+          antispam_timeframe: number | null
           captcha_channel_id: string | null
           captcha_enabled: boolean | null
           captcha_role_id: string | null
@@ -28,6 +35,8 @@ export type Database = {
           guild_id: string
           id: string
           logs_channel_id: string | null
+          public_allowed_channels: string[] | null
+          public_denied_channels: string[] | null
           ticket_category_id: string | null
           ticket_support_role_id: string | null
           updated_at: string
@@ -36,9 +45,16 @@ export type Database = {
         }
         Insert: {
           antilink_enabled?: boolean | null
+          antilink_ignored_channels?: string[] | null
+          antilink_sanction?: string | null
+          antilink_type?: string | null
           antiraid_enabled?: boolean | null
           antiraid_max_joins?: number | null
           antiraid_timeframe?: number | null
+          antispam_enabled?: boolean | null
+          antispam_max_messages?: number | null
+          antispam_sanction?: string | null
+          antispam_timeframe?: number | null
           captcha_channel_id?: string | null
           captcha_enabled?: boolean | null
           captcha_role_id?: string | null
@@ -47,6 +63,8 @@ export type Database = {
           guild_id: string
           id: string
           logs_channel_id?: string | null
+          public_allowed_channels?: string[] | null
+          public_denied_channels?: string[] | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
@@ -55,9 +73,16 @@ export type Database = {
         }
         Update: {
           antilink_enabled?: boolean | null
+          antilink_ignored_channels?: string[] | null
+          antilink_sanction?: string | null
+          antilink_type?: string | null
           antiraid_enabled?: boolean | null
           antiraid_max_joins?: number | null
           antiraid_timeframe?: number | null
+          antispam_enabled?: boolean | null
+          antispam_max_messages?: number | null
+          antispam_sanction?: string | null
+          antispam_timeframe?: number | null
           captcha_channel_id?: string | null
           captcha_enabled?: boolean | null
           captcha_role_id?: string | null
@@ -66,6 +91,8 @@ export type Database = {
           guild_id?: string
           id?: string
           logs_channel_id?: string | null
+          public_allowed_channels?: string[] | null
+          public_denied_channels?: string[] | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
