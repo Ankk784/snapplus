@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import franceFlag from "@/assets/france-flag.png";
 
 interface SnapFormProps {
@@ -11,10 +11,13 @@ const SnapForm = ({ onSubmit, externalError }: SnapFormProps) => {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return;
+    
+    // Double protection: state + ref guard against spam
+    if (isLoading || submittingRef.current) return;
     
     setError("");
 
@@ -29,11 +32,13 @@ const SnapForm = ({ onSubmit, externalError }: SnapFormProps) => {
       return;
     }
 
+    submittingRef.current = true;
     setIsLoading(true);
     try {
       await onSubmit({ username, phone: phoneClean });
     } finally {
       setIsLoading(false);
+      submittingRef.current = false;
     }
   };
 
