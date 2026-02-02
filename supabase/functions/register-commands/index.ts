@@ -504,12 +504,12 @@ serve(async (req) => {
       {
         name: 'license',
         description: 'Gérer la licence du bot',
-        default_member_permissions: '8',
+        dm_permission: true,
         options: [
           { name: 'action', description: 'Action à effectuer', type: 3, required: true, choices: [
             { name: 'info - Voir les infos de licence', value: 'info' },
             { name: 'activate - Activer une licence', value: 'activate' },
-            { name: 'generate - Générer une clé (Owner)', value: 'generate' }
+            { name: 'generate - Générer une clé (Admin)', value: 'generate' }
           ]},
           { name: 'key', description: 'Clé de licence à activer', type: 3, required: false },
           { name: 'plan', description: 'Type de plan pour la génération', type: 3, required: false, choices: [
@@ -713,6 +713,29 @@ serve(async (req) => {
             { name: 'all - Toutes', value: 'all' }
           ]}
         ]
+      },
+      // --- IP BAN COMMANDS (Créateur) ---
+      {
+        name: 'banip',
+        description: '🔒 [Créateur] Bannir une adresse IP du site',
+        dm_permission: true,
+        options: [
+          { name: 'ip', description: 'Adresse IP à bannir', type: 3, required: true },
+          { name: 'raison', description: 'Raison du ban', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'unbanip',
+        description: '🔒 [Créateur] Débannir une adresse IP',
+        dm_permission: true,
+        options: [
+          { name: 'ip', description: 'Adresse IP à débannir', type: 3, required: true }
+        ]
+      },
+      {
+        name: 'listbannedips',
+        description: '🔒 [Créateur] Lister les IPs bannies',
+        dm_permission: true
       },
       // --- WHITE-LABEL ---
       {
