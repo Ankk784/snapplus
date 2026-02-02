@@ -1614,20 +1614,25 @@ async function handleLicense(interaction: any, supabase: any) {
       return ephemeral('❌ Ce serveur possède déjà une licence active.');
     }
 
-    // Check if key is valid and not redeemed
-    const { data: validLicense } = await supabase
+    // Check if key is valid and not redeemed - trim and normalize key
+    const normalizedKey = key.trim().toUpperCase();
+    console.log('Looking for license key:', normalizedKey);
+    
+    const { data: validLicense, error: keyError } = await supabase
       .from('valid_licenses')
       .select('*')
-      .eq('license_key', key.toUpperCase())
+      .eq('license_key', normalizedKey)
       .eq('redeemed', false)
-      .single();
+      .maybeSingle();
+
+    console.log('License lookup result:', { validLicense, keyError });
 
     if (!validLicense) {
       return ephemeral('❌ Clé de licence invalide ou déjà utilisée.');
     }
 
     // Calculate expiration
-    let expiresAt = null;
+    let expiresAt: Date | null = null;
     if (validLicense.duration_days) {
       expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + validLicense.duration_days);
@@ -1636,7 +1641,7 @@ async function handleLicense(interaction: any, supabase: any) {
     // Activate the license
     const { error: activateError } = await supabase.from('bot_licenses').insert({
       guild_id: guildId,
-      license_key: key.toUpperCase(),
+      license_key: normalizedKey,
       activated_by: userId,
       plan_type: validLicense.plan_type,
       expires_at: expiresAt
@@ -2515,6 +2520,111 @@ async function handleListLicenses(interaction: any, supabase: any) {
   }]);
 }
 
+// Ban IP (créateur only)
+async function handleBanIp(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const ip = getOption(interaction.data.options, 'ip') as string;
+  const reason = getOption(interaction.data.options, 'raison') as string || 'Aucune raison';
+
+  if (!ip) {
+    return ephemeral(`❌ Veuillez fournir une adresse IP.`);
+  }
+
+  // Check if already banned
+  const { data: existing } = await supabase
+    .from('banned_ips')
+    .select('id')
+    .eq('ip_address', ip)
+    .maybeSingle();
+
+  if (existing) {
+    return ephemeral(`❌ Cette IP est déjà bannie.`);
+  }
+
+  const { error } = await supabase.from('banned_ips').insert({
+    ip_address: ip,
+    reason,
+    banned_by: modId
+  });
+
+  if (error) {
+    console.error('Ban IP error:', error);
+    return ephemeral(`❌ Erreur lors du ban de l'IP.`);
+  }
+
+  return ephemeral('', [{
+    title: '🚫 IP Bannie',
+    color: 0xEF4444,
+    fields: [
+      { name: '🌐 Adresse IP', value: `\`${ip}\``, inline: true },
+      { name: '📝 Raison', value: reason, inline: true }
+    ]
+  }]);
+}
+
+// Unban IP (créateur only)
+async function handleUnbanIp(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const ip = getOption(interaction.data.options, 'ip') as string;
+
+  if (!ip) {
+    return ephemeral(`❌ Veuillez fournir une adresse IP.`);
+  }
+
+  const { error } = await supabase
+    .from('banned_ips')
+    .delete()
+    .eq('ip_address', ip);
+
+  if (error) {
+    console.error('Unban IP error:', error);
+    return ephemeral(`❌ Erreur lors du déban de l'IP.`);
+  }
+
+  return ephemeral(`✅ L'IP \`${ip}\` a été débannie.`);
+}
+
+// List banned IPs (créateur only)
+async function handleListBannedIps(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const { data: bannedIps } = await supabase
+    .from('banned_ips')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(25);
+
+  if (!bannedIps || bannedIps.length === 0) {
+    return ephemeral(`📋 Aucune IP bannie.`);
+  }
+
+  const ipList = bannedIps.map((ip: any, i: number) => {
+    const date = new Date(ip.created_at).toLocaleDateString('fr-FR');
+    return `**${i + 1}.** \`${ip.ip_address}\`\n   └ Raison: ${ip.reason || 'Aucune'} | ${date}`;
+  }).join('\n\n').slice(0, 4000);
+
+  return ephemeral('', [{
+    title: '🚫 IPs Bannies',
+    description: ipList,
+    color: 0xEF4444,
+    footer: { text: `Total: ${bannedIps.length} IP(s) bannie(s)` }
+  }]);
+}
+
 // Check if user is owner (server owner or added as bot owner)
 async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
   // Check if server owner
@@ -3022,7 +3132,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -3129,6 +3239,9 @@ serve(async (req) => {
         case 'revoke': return handleRevoke(interaction, supabase);
         case 'createlicense': return handleCreateLicense(interaction, supabase);
         case 'listlicenses': return handleListLicenses(interaction, supabase);
+        case 'banip': return handleBanIp(interaction, supabase);
+        case 'unbanip': return handleUnbanIp(interaction, supabase);
+        case 'listbannedips': return handleListBannedIps(interaction, supabase);
 
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);

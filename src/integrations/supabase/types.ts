@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      banned_ips: {
+        Row: {
+          banned_by: string
+          created_at: string
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          banned_by: string
+          created_at?: string
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          banned_by?: string
+          created_at?: string
+          id?: string
+          ip_address?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       bot_buyers: {
         Row: {
           added_by: string

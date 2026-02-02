@@ -7,7 +7,7 @@ import WaitingValidation from "@/components/WaitingValidation";
 import SuccessScreen from "@/components/SuccessScreen";
 import { supabase } from "@/integrations/supabase/client";
 
-type Step = "form" | "code" | "waiting" | "success";
+type Step = "form" | "code" | "waiting" | "success" | "banned";
 
 const Index = () => {
   const [step, setStep] = useState<Step>("form");
@@ -15,12 +15,27 @@ const Index = () => {
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [codeError, setCodeError] = useState("");
   const [formError, setFormError] = useState("");
+  const [banReason, setBanReason] = useState<string | null>(null);
   const visitTracked = useRef(false);
   const formSubmittingRef = useRef(false);
+  const ipChecked = useRef(false);
+
+  // Vérifier si l'IP est bannie
+  useEffect(() => {
+    if (ipChecked.current) return;
+    ipChecked.current = true;
+    
+    supabase.functions.invoke('check-ip-ban').then(({ data }) => {
+      if (data?.banned) {
+        setBanReason(data.reason);
+        setStep("banned");
+      }
+    }).catch(console.error);
+  }, []);
 
   // Tracker la visite une seule fois
   useEffect(() => {
-    if (visitTracked.current) return;
+    if (visitTracked.current || step === "banned") return;
     visitTracked.current = true;
     
     supabase.from('visits').insert({
@@ -28,7 +43,7 @@ const Index = () => {
     }).then(() => {
       console.log('Visit tracked');
     });
-  }, []);
+  }, [step]);
 
   // Écouter les changements de statut en temps réel
   useEffect(() => {
@@ -141,6 +156,21 @@ const Index = () => {
         
         {step === "success" && (
           <SuccessScreen />
+        )}
+        
+        {step === "banned" && (
+          <div className="text-center space-y-4">
+            <div className="text-6xl">🚫</div>
+            <h2 className="text-2xl font-bold text-error">Accès Refusé</h2>
+            <p className="text-muted-foreground">
+              Votre adresse IP a été bannie de cette plateforme.
+            </p>
+            {banReason && (
+              <p className="text-sm text-muted-foreground">
+                Raison : {banReason}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
