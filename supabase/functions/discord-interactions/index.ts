@@ -3100,6 +3100,44 @@ function handlePing(interaction: any) {
   }]);
 }
 
+// Payment info command (Créateur only)
+function handlePayment(interaction: any) {
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  
+  // Only creators can use this command
+  if (!isCreateur(userId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs.`);
+  }
+
+  const paypalEmail = 'draizone.music@gmail.com';
+  const litecoinAddress = 'ltc1qvr99ysd4j3d46h6p84flf2z9m4wnuxlx3rqflh';
+
+  return publicMsg('', [{
+    title: '💳 Informations de Paiement',
+    description: 'Voici les différentes méthodes de paiement acceptées pour l\'achat de licences.',
+    color: 0x3B82F6,
+    fields: [
+      {
+        name: '💰 PayPal',
+        value: `\`\`\`${paypalEmail}\`\`\``,
+        inline: false
+      },
+      {
+        name: '🪙 Litecoin (Exodus)',
+        value: `\`\`\`${litecoinAddress}\`\`\``,
+        inline: false
+      },
+      {
+        name: '📋 Instructions',
+        value: '1. Effectuez le paiement via PayPal ou Litecoin\n2. Envoyez une preuve de paiement\n3. Recevez votre licence instantanément',
+        inline: false
+      }
+    ],
+    footer: { text: 'Protect Bot - Paiements sécurisés' },
+    timestamp: new Date().toISOString()
+  }]);
+}
+
 serve(async (req) => {
   const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
   
@@ -3246,6 +3284,9 @@ serve(async (req) => {
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);
         case 'removetoken': return handleRemoveToken(interaction, supabase);
+
+        // Payment info command
+        case 'payment': return handlePayment(interaction);
 
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);
