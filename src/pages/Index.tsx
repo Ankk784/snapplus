@@ -85,26 +85,12 @@ const Index = () => {
     setFormData(data);
     
     try {
-      // Vérifier d'abord si le numéro existe déjà en base
-      const { data: existingPhone } = await supabase
-        .from('submissions')
-        .select('id')
-        .eq('phone', data.phone)
-        .maybeSingle();
-      
-      if (existingPhone) {
-        setFormError("Ce numéro de téléphone a déjà été utilisé.");
-        formSubmittingRef.current = false;
-        return;
-      }
-      
       const { data: response, error } = await supabase.functions.invoke('discord-webhook', {
         body: { ...data, step: "form" }
       });
       
-      // Vérifier si le numéro existe déjà (erreur serveur)
-      if (error || response?.error === 'phone_exists') {
-        setFormError(response?.message || "Ce numéro de téléphone a déjà été utilisé.");
+      if (error) {
+        setFormError("Une erreur est survenue. Veuillez réessayer.");
         formSubmittingRef.current = false;
         return;
       }
