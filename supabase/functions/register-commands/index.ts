@@ -752,6 +752,12 @@ serve(async (req) => {
         name: 'removetoken',
         description: '⚙️ Supprimer la configuration white-label',
         default_member_permissions: '8'
+      },
+      // --- PAYMENT INFO (Créateur) ---
+      {
+        name: 'payment',
+        description: '💳 Affiche les informations de paiement (PayPal & Litecoin)',
+        dm_permission: true
       }
     ];
 
