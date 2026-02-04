@@ -3138,15 +3138,14 @@ function handlePayment(interaction: any) {
   }]);
 }
 
-// AI command - DIRECT PATTERN MATCHING + AI FALLBACK
+// AI AGENT - VRAI AGENT INTELLIGENT AVEC TOOL CALLING
 async function handleIA(interaction: any, supabase: any) {
-  const question = interaction.data.options?.find((o: any) => o.name === 'question')?.value?.toLowerCase() || '';
   const originalQuestion = interaction.data.options?.find((o: any) => o.name === 'question')?.value || '';
   const userId = interaction.member?.user?.id || interaction.user?.id;
   const guildId = interaction.guild_id;
   const userName = interaction.member?.user?.username || interaction.user?.username || 'Utilisateur';
   
-  if (!question) {
+  if (!originalQuestion) {
     return ephemeral('❌ Tu dois poser une question.');
   }
 
@@ -3157,296 +3156,595 @@ async function handleIA(interaction: any, supabase: any) {
     return ephemeral('❌ Seuls les créateurs et bot owners peuvent utiliser cette commande.');
   }
 
-  console.log(`[IA] User ${userId}: ${question}`);
+  console.log(`[IA Agent] User ${userId}: ${originalQuestion}`);
 
-  let actionResult = '';
-  let actionSuccess = false;
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    return ephemeral('❌ API IA non configurée.');
+  }
 
   try {
-    // ===== DIRECT PATTERN MATCHING =====
-    
-    // --- STATS INTERVAL ---
-    const intervalMatch = question.match(/(?:intervalle|interval|stats?).*?(\d+)\s*(?:s|sec|secondes?)?/i) ||
-                          question.match(/(\d+)\s*(?:s|sec|secondes?).*?(?:intervalle|interval|stats?)/i) ||
-                          question.match(/met.*?stats?.*?(\d+)/i) ||
-                          question.match(/change.*?stats?.*?(\d+)/i);
-    if (intervalMatch) {
-      const interval = Math.min(300, Math.max(10, parseInt(intervalMatch[1])));
-      await supabase.from('stats_config').update({ stats_interval_seconds: interval }).eq('id', 'main');
-      actionResult = `✅ Intervalle des stats modifié à **${interval} secondes**`;
-      actionSuccess = true;
-    }
-    
-    // --- GET STATS ---
-    else if (question.match(/(?:montre|affiche|voir|donne|stats|statistiques?).*?(?:site|visites?|soumissions?)/i) ||
-             question.match(/(?:combien|nombre).*?(?:visites?|soumissions?)/i)) {
-      const [{ count: visits }, { count: submissions }, { count: approved }] = await Promise.all([
-        supabase.from('visits').select('*', { count: 'exact', head: true }),
-        supabase.from('submissions').select('*', { count: 'exact', head: true }),
-        supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'approved')
-      ]);
-      const rate = submissions && submissions > 0 ? ((approved! / submissions) * 100).toFixed(1) : '0';
-      actionResult = `📊 **Statistiques du site:**\n• Visites: **${visits || 0}**\n• Soumissions: **${submissions || 0}**\n• Approuvées: **${approved || 0}**\n• Taux de conversion: **${rate}%**`;
-      actionSuccess = true;
-    }
-    
-    // --- GET SUBMISSIONS ---
-    else if (question.match(/(?:montre|affiche|voir|donne|liste?).*?(?:soumissions?|formulaire)/i) ||
-             question.match(/(?:dernières?|recent).*?soumissions?/i)) {
-      const limitMatch = question.match(/(\d+)\s*(?:dernières?|soumissions?)/i);
-      const limit = limitMatch ? Math.min(20, parseInt(limitMatch[1])) : 10;
-      const { data: subs } = await supabase.from('submissions').select('*').order('created_at', { ascending: false }).limit(limit);
-      if (subs && subs.length > 0) {
-        actionResult = `📝 **${subs.length} dernières soumissions:**\n` + 
-          subs.map((s: any) => `• \`${s.username}\` - ${s.phone} - ${s.status === 'approved' ? '✅' : s.status === 'rejected' ? '❌' : '⏳'}`).join('\n');
-      } else {
-        actionResult = `Aucune soumission trouvée.`;
-      }
-      actionSuccess = true;
-    }
-    
-    // --- BAN IP ---
-    else if (question.match(/(?:banni[rs]?|ban|bloque?).*?(?:ip|adresse)/i)) {
-      const ipMatch = originalQuestion.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-      if (ipMatch) {
-        await supabase.from('banned_ips').insert({ ip_address: ipMatch[1], reason: 'Banni via IA', banned_by: userId });
-        actionResult = `🚫 IP **${ipMatch[1]}** bannie du site`;
-        actionSuccess = true;
-      } else {
-        actionResult = `❌ Aucune IP détectée. Exemple: "banni l'IP 192.168.1.1"`;
-      }
-    }
-    
-    // --- UNBAN IP ---
-    else if (question.match(/(?:débanni[rs]?|unban|débloque?).*?(?:ip|adresse)/i)) {
-      const ipMatch = originalQuestion.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-      if (ipMatch) {
-        await supabase.from('banned_ips').delete().eq('ip_address', ipMatch[1]);
-        actionResult = `✅ IP **${ipMatch[1]}** débannie`;
-        actionSuccess = true;
-      } else {
-        actionResult = `❌ Aucune IP détectée.`;
-      }
-    }
-    
-    // --- LIST BANNED IPS ---
-    else if (question.match(/(?:liste?|montre|affiche|voir).*?(?:ip|ips?).*?(?:banni|ban)/i) ||
-             question.match(/(?:ip|ips?).*?(?:banni|ban)/i)) {
-      const { data: ips } = await supabase.from('banned_ips').select('*').order('created_at', { ascending: false });
-      if (ips && ips.length > 0) {
-        actionResult = `🚫 **${ips.length} IPs bannies:**\n` + 
-          ips.slice(0, 15).map((ip: any) => `• \`${ip.ip_address}\` - ${ip.reason || 'Pas de raison'}`).join('\n');
-      } else {
-        actionResult = `Aucune IP bannie.`;
-      }
-      actionSuccess = true;
-    }
-    
-    // --- CREATE LICENSE ---
-    else if (question.match(/(?:crée?|génère?|nouvelle?).*?licence/i)) {
-      if (!isAdmin) {
-        actionResult = `❌ Seuls les créateurs peuvent créer des licences.`;
-      } else {
-        let planType = 'standard';
-        if (question.includes('premium')) planType = 'premium';
-        if (question.includes('lifetime') || question.includes('vie') || question.includes('illimité')) planType = 'lifetime';
-        
-        const daysMatch = question.match(/(\d+)\s*(?:jours?|j|days?)/i);
-        const durationDays = planType === 'lifetime' ? null : (daysMatch ? parseInt(daysMatch[1]) : 30);
-        
-        const key = `PROTECT-${planType.toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
-        await supabase.from('valid_licenses').insert({ license_key: key, plan_type: planType, duration_days: durationDays });
-        
-        actionResult = `🔑 **Licence créée!**\n\`\`\`${key}\`\`\`\n• Type: **${planType}**\n• Durée: **${planType === 'lifetime' ? 'Illimitée' : `${durationDays} jours`}**`;
-        actionSuccess = true;
-      }
-    }
-    
-    // --- LIST LICENSES ---
-    else if (question.match(/(?:liste?|montre|affiche|voir).*?licences?/i)) {
-      const { data: licenses } = await supabase.from('bot_licenses').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(15);
-      if (licenses && licenses.length > 0) {
-        actionResult = `🔑 **${licenses.length} licences actives:**\n` +
-          licenses.map((l: any) => `• \`${l.guild_id}\` - ${l.plan_type} ${l.expires_at ? `(expire ${new Date(l.expires_at).toLocaleDateString('fr-FR')})` : '(lifetime)'}`).join('\n');
-      } else {
-        actionResult = `Aucune licence active.`;
-      }
-      actionSuccess = true;
-    }
-    
-    // --- ACTIVATE/DEACTIVATE FEATURES ---
-    else if (question.match(/(?:active?|enable?|met|activer)/i)) {
-      let setting = '';
-      if (question.includes('antilink')) setting = 'antilink_enabled';
-      else if (question.includes('antispam')) setting = 'antispam_enabled';
-      else if (question.includes('antiraid')) setting = 'antiraid_enabled';
-      else if (question.includes('captcha')) setting = 'captcha_enabled';
-      else if (question.includes('showpic')) setting = 'showpic_enabled';
-      
-      if (setting) {
-        await supabase.from('guild_config').upsert({
-          id: guildId, guild_id: guildId, [setting]: true, updated_at: new Date().toISOString()
-        }, { onConflict: 'guild_id' });
-        actionResult = `✅ **${setting.replace('_enabled', '')}** activé`;
-        actionSuccess = true;
-      }
-    }
-    
-    else if (question.match(/(?:désactive?|disable?|désactiver|enlève)/i)) {
-      let setting = '';
-      if (question.includes('antilink')) setting = 'antilink_enabled';
-      else if (question.includes('antispam')) setting = 'antispam_enabled';
-      else if (question.includes('antiraid')) setting = 'antiraid_enabled';
-      else if (question.includes('captcha')) setting = 'captcha_enabled';
-      else if (question.includes('showpic')) setting = 'showpic_enabled';
-      
-      if (setting) {
-        await supabase.from('guild_config').upsert({
-          id: guildId, guild_id: guildId, [setting]: false, updated_at: new Date().toISOString()
-        }, { onConflict: 'guild_id' });
-        actionResult = `✅ **${setting.replace('_enabled', '')}** désactivé`;
-        actionSuccess = true;
-      }
-    }
-    
-    // --- GET CONFIG ---
-    else if (question.match(/(?:montre|affiche|voir|config|configuration|paramètres?)/i) && 
-             question.match(/(?:serveur|guild|bot|actuel)/i)) {
-      const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
-      const { data: statsConfig } = await supabase.from('stats_config').select('*').eq('id', 'main').single();
-      
-      if (config) {
-        actionResult = `⚙️ **Configuration du serveur:**\n` +
-          `• Antilink: ${config.antilink_enabled ? '✅' : '❌'}\n` +
-          `• Antispam: ${config.antispam_enabled ? '✅' : '❌'} (${config.antispam_max_messages || 5} msg/${config.antispam_timeframe || 5}s)\n` +
-          `• Antiraid: ${config.antiraid_enabled ? '✅' : '❌'} (${config.antiraid_max_joins || 10} joins/${config.antiraid_timeframe || 60}s)\n` +
-          `• Captcha: ${config.captcha_enabled ? '✅' : '❌'}\n` +
-          `• Showpic: ${config.showpic_enabled ? '✅' : '❌'}\n\n` +
-          `📊 **Stats:** Intervalle **${statsConfig?.stats_interval_seconds || 30}s**`;
-      } else {
-        actionResult = `Aucune configuration pour ce serveur. Utilise les commandes pour configurer.`;
-      }
-      actionSuccess = true;
-    }
-    
-    // --- ANTISPAM SETTINGS ---
-    else if (question.match(/antispam/i) && question.match(/(\d+)/)) {
-      const numbers = question.match(/(\d+)/g) || [];
-      const updates: any = { updated_at: new Date().toISOString() };
-      
-      if (numbers.length >= 1) {
-        if (question.includes('message')) {
-          updates.antispam_max_messages = Math.min(20, Math.max(1, parseInt(numbers[0])));
-        } else if (question.includes('temps') || question.includes('seconde')) {
-          updates.antispam_timeframe = Math.min(60, Math.max(1, parseInt(numbers[0])));
-        } else {
-          updates.antispam_max_messages = Math.min(20, Math.max(1, parseInt(numbers[0])));
-          if (numbers[1]) updates.antispam_timeframe = Math.min(60, Math.max(1, parseInt(numbers[1])));
+    // Définition des tools disponibles pour l'agent
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "get_stats",
+          description: "Obtenir les statistiques du site (visites, soumissions, taux de conversion)",
+          parameters: { type: "object", properties: {}, required: [] }
         }
-      }
-      
-      await supabase.from('guild_config').upsert({ id: guildId, guild_id: guildId, ...updates }, { onConflict: 'guild_id' });
-      actionResult = `✅ Paramètres antispam mis à jour`;
-      actionSuccess = true;
-    }
-    
-    // --- ANTIRAID SETTINGS ---
-    else if (question.match(/antiraid/i) && question.match(/(\d+)/)) {
-      const numbers = question.match(/(\d+)/g) || [];
-      const updates: any = { updated_at: new Date().toISOString() };
-      
-      if (numbers.length >= 1) {
-        updates.antiraid_max_joins = Math.min(50, Math.max(1, parseInt(numbers[0])));
-        if (numbers[1]) updates.antiraid_timeframe = Math.min(300, Math.max(10, parseInt(numbers[1])));
-      }
-      
-      await supabase.from('guild_config').upsert({ id: guildId, guild_id: guildId, ...updates }, { onConflict: 'guild_id' });
-      actionResult = `✅ Paramètres antiraid mis à jour`;
-      actionSuccess = true;
-    }
-    
-    // --- LIST SANCTIONS ---
-    else if (question.match(/(?:sanctions?|warns?|bans?|mutes?)/i) && question.match(/(?:liste?|montre|affiche|voir)/i)) {
-      const { data: sanctions } = await supabase.from('sanctions').select('*').eq('guild_id', guildId).order('created_at', { ascending: false }).limit(10);
-      if (sanctions && sanctions.length > 0) {
-        actionResult = `⚖️ **${sanctions.length} dernières sanctions:**\n` +
-          sanctions.map((s: any) => `• <@${s.user_id}> - **${s.type}** - ${s.reason || 'Pas de raison'}`).join('\n');
-      } else {
-        actionResult = `Aucune sanction sur ce serveur.`;
-      }
-      actionSuccess = true;
-    }
-    
-    // --- HELP ---
-    else if (question.match(/(?:aide|help|commandes?|quoi faire|que peux)/i)) {
-      actionResult = `🤖 **Commandes IA disponibles:**\n\n` +
-        `📊 **Stats:**\n` +
-        `• "montre les stats du site"\n` +
-        `• "met l'intervalle des stats à 25 secondes"\n\n` +
-        `📝 **Soumissions:**\n` +
-        `• "montre les 10 dernières soumissions"\n\n` +
-        `🚫 **IP:**\n` +
-        `• "banni l'IP 1.2.3.4"\n` +
-        `• "débanni l'IP 1.2.3.4"\n` +
-        `• "liste les IPs bannies"\n\n` +
-        `🔑 **Licences:**\n` +
-        `• "crée une licence premium de 30 jours"\n` +
-        `• "liste les licences"\n\n` +
-        `⚙️ **Config:**\n` +
-        `• "active l'antiraid"\n` +
-        `• "désactive l'antispam"\n` +
-        `• "montre la config du serveur"\n` +
-        `• "antispam 10 messages en 5 secondes"`;
-      actionSuccess = true;
-    }
-    
-    // --- FALLBACK: Use AI for general questions ---
-    else {
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) {
-        actionResult = `❓ Je n'ai pas compris. Tape "aide" pour voir les commandes disponibles.`;
-      } else {
-        try {
-          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-3-flash-preview',
-              messages: [
-                { role: 'system', content: 'Tu es un assistant IA du bot Discord "Protect Bot". Réponds en français, de manière concise (max 1500 caractères). Utilise le markdown Discord.' },
-                { role: 'user', content: originalQuestion }
-              ],
-              max_tokens: 800,
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            actionResult = data.choices?.[0]?.message?.content || `❓ Je n'ai pas compris. Tape "aide" pour voir les commandes.`;
-            actionSuccess = true;
-          } else {
-            actionResult = `❓ Je n'ai pas compris cette demande. Tape **"aide"** pour voir les commandes disponibles.`;
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_stats_interval",
+          description: "Modifier l'intervalle de mise à jour des statistiques Discord",
+          parameters: {
+            type: "object",
+            properties: { seconds: { type: "number", description: "Nouvel intervalle en secondes (10-300)" } },
+            required: ["seconds"]
           }
-        } catch (e) {
-          actionResult = `❓ Je n'ai pas compris. Tape "aide" pour voir les commandes.`;
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_submissions",
+          description: "Lister les dernières soumissions du formulaire",
+          parameters: {
+            type: "object",
+            properties: { limit: { type: "number", description: "Nombre de soumissions à afficher (max 20)" } },
+            required: []
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "ban_ip",
+          description: "Bannir une adresse IP du site",
+          parameters: {
+            type: "object",
+            properties: { ip: { type: "string", description: "Adresse IP à bannir" }, reason: { type: "string", description: "Raison du ban" } },
+            required: ["ip"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "unban_ip",
+          description: "Débannir une adresse IP",
+          parameters: {
+            type: "object",
+            properties: { ip: { type: "string", description: "Adresse IP à débannir" } },
+            required: ["ip"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_banned_ips",
+          description: "Lister toutes les IPs bannies",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_license",
+          description: "Créer une nouvelle licence pour le bot (créateurs seulement)",
+          parameters: {
+            type: "object",
+            properties: {
+              plan_type: { type: "string", enum: ["standard", "premium", "lifetime"], description: "Type de licence" },
+              duration_days: { type: "number", description: "Durée en jours (null pour lifetime)" }
+            },
+            required: ["plan_type"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_licenses",
+          description: "Lister les licences actives du bot",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "revoke_license",
+          description: "Révoquer une licence existante",
+          parameters: {
+            type: "object",
+            properties: { guild_id: { type: "string", description: "ID du serveur Discord" } },
+            required: ["guild_id"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_guild_config",
+          description: "Obtenir la configuration actuelle du serveur (antilink, antispam, antiraid, etc.)",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_guild_config",
+          description: "Activer/désactiver une fonctionnalité du serveur",
+          parameters: {
+            type: "object",
+            properties: {
+              feature: { type: "string", enum: ["antilink", "antispam", "antiraid", "captcha", "showpic"], description: "Fonctionnalité à modifier" },
+              enabled: { type: "boolean", description: "Activer (true) ou désactiver (false)" }
+            },
+            required: ["feature", "enabled"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_antispam_settings",
+          description: "Modifier les paramètres antispam",
+          parameters: {
+            type: "object",
+            properties: {
+              max_messages: { type: "number", description: "Nombre max de messages" },
+              timeframe: { type: "number", description: "Période en secondes" }
+            },
+            required: []
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_antiraid_settings",
+          description: "Modifier les paramètres antiraid",
+          parameters: {
+            type: "object",
+            properties: {
+              max_joins: { type: "number", description: "Nombre max de joins" },
+              timeframe: { type: "number", description: "Période en secondes" }
+            },
+            required: []
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_sanctions",
+          description: "Lister les dernières sanctions du serveur",
+          parameters: {
+            type: "object",
+            properties: { limit: { type: "number", description: "Nombre de sanctions" } },
+            required: []
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_bot_owners",
+          description: "Lister les propriétaires du bot pour ce serveur",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_bot_buyers",
+          description: "Lister les acheteurs du bot pour ce serveur",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "disable_command",
+          description: "Désactiver une commande du bot sur ce serveur",
+          parameters: {
+            type: "object",
+            properties: { command_name: { type: "string", description: "Nom de la commande à désactiver (ex: redeem, help, ban)" } },
+            required: ["command_name"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "enable_command",
+          description: "Réactiver une commande du bot sur ce serveur",
+          parameters: {
+            type: "object",
+            properties: { command_name: { type: "string", description: "Nom de la commande à réactiver" } },
+            required: ["command_name"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_disabled_commands",
+          description: "Lister les commandes désactivées sur ce serveur",
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "set_welcome_message",
+          description: "Configurer le message de bienvenue du serveur",
+          parameters: {
+            type: "object",
+            properties: {
+              message: { type: "string", description: "Message de bienvenue (utilise {user} pour mentionner)" },
+              channel_id: { type: "string", description: "ID du salon de bienvenue" }
+            },
+            required: ["message"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "set_goodbye_message",
+          description: "Configurer le message d'au revoir du serveur",
+          parameters: {
+            type: "object",
+            properties: { message: { type: "string", description: "Message d'au revoir" } },
+            required: ["message"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "general_response",
+          description: "Répondre à une question générale qui ne nécessite pas d'action",
+          parameters: {
+            type: "object",
+            properties: { response: { type: "string", description: "La réponse à donner" } },
+            required: ["response"]
+          }
         }
       }
+    ];
+
+    // Appel à l'IA avec les tools
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `Tu es l'IA du bot Discord "Protect Bot". Tu peux exécuter des actions sur le bot et le site via les tools disponibles.
+
+RÈGLES:
+- Analyse la demande de l'utilisateur et choisis le tool approprié
+- Tu peux modifier la config, gérer les licences, bannir des IPs, désactiver des commandes, etc.
+- Pour désactiver/supprimer une commande, utilise "disable_command"
+- Pour réactiver une commande, utilise "enable_command"
+- Les noms de commandes sont sans le "/" (ex: "redeem", "help", "ban")
+- Si c'est une question générale sans action, utilise "general_response"
+- Réponds TOUJOURS en français
+- Sois concis et précis
+
+CONTEXTE:
+- Guild ID: ${guildId}
+- User ID: ${userId}
+- Est créateur: ${isAdmin}
+
+COMMANDES DISPONIBLES DU BOT: help, say, stats, ban, unban, kick, mute, unmute, clear, lock, unlock, addrole, delrole, sanctions, banlist, mutelist, warn, sanctions-clear, massiverole, unmassiverole, renew, embed, serverinfo, userinfo, roleinfo, bringall, slowmode, temprole, note, notes, announce, ticket, close, add, remove, ticketconfig, setlogs, setwelcome, antiraid, captcha, antilink, antilink-ignore, antilink-sanction, antilink-type, antispam, antispam-config, showpic, piconly, piconly-remove, piconly-list, counter, counter-list, counter-remove, setowner, delowner, listowners, buyer, unbuyer, listbuyers, support, unsupport, listsupports, nolog, disable, enable, listdisabled, config, hidereply, license, redeem, createlicense, listlicenses, revoke, listallowners, listallbuyers, buy, setpaypal, payment, banip, unbanip, listbannedips, settoken, removetoken, ia, stats-perma`
+          },
+          { role: 'user', content: originalQuestion }
+        ],
+        tools,
+        tool_choice: 'auto'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[IA Agent] API Error:', errorText);
+      return ephemeral(`❌ Erreur API IA: ${response.status}`);
     }
 
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+
+    if (!message) {
+      return ephemeral('❌ Réponse IA invalide.');
+    }
+
+    // Si l'IA a choisi d'appeler un tool
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolResults: string[] = [];
+
+      for (const toolCall of message.tool_calls) {
+        const fnName = toolCall.function.name;
+        let args: any = {};
+        try {
+          args = JSON.parse(toolCall.function.arguments || '{}');
+        } catch { args = {}; }
+
+        console.log(`[IA Agent] Tool call: ${fnName}`, args);
+
+        let result = '';
+
+        switch (fnName) {
+          case 'get_stats': {
+            const [{ count: visits }, { count: submissions }, { count: approved }] = await Promise.all([
+              supabase.from('visits').select('*', { count: 'exact', head: true }),
+              supabase.from('submissions').select('*', { count: 'exact', head: true }),
+              supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'approved')
+            ]);
+            const rate = submissions && submissions > 0 ? ((approved! / submissions) * 100).toFixed(1) : '0';
+            result = `📊 **Statistiques du site:**\n• Visites: **${visits || 0}**\n• Soumissions: **${submissions || 0}**\n• Approuvées: **${approved || 0}**\n• Taux: **${rate}%**`;
+            break;
+          }
+
+          case 'update_stats_interval': {
+            const interval = Math.min(300, Math.max(10, args.seconds || 30));
+            await supabase.from('stats_config').update({ stats_interval_seconds: interval }).eq('id', 'main');
+            result = `✅ Intervalle des stats modifié à **${interval} secondes**`;
+            break;
+          }
+
+          case 'get_submissions': {
+            const limit = Math.min(20, args.limit || 10);
+            const { data: subs } = await supabase.from('submissions').select('*').order('created_at', { ascending: false }).limit(limit);
+            if (subs && subs.length > 0) {
+              result = `📝 **${subs.length} dernières soumissions:**\n` + 
+                subs.map((s: any) => `• \`${s.username}\` - ${s.phone} - ${s.status === 'approved' ? '✅' : s.status === 'rejected' ? '❌' : '⏳'}`).join('\n');
+            } else {
+              result = `Aucune soumission trouvée.`;
+            }
+            break;
+          }
+
+          case 'ban_ip': {
+            await supabase.from('banned_ips').insert({ ip_address: args.ip, reason: args.reason || 'Banni via IA', banned_by: userId });
+            result = `🚫 IP **${args.ip}** bannie du site`;
+            break;
+          }
+
+          case 'unban_ip': {
+            await supabase.from('banned_ips').delete().eq('ip_address', args.ip);
+            result = `✅ IP **${args.ip}** débannie`;
+            break;
+          }
+
+          case 'list_banned_ips': {
+            const { data: ips } = await supabase.from('banned_ips').select('*').order('created_at', { ascending: false });
+            if (ips && ips.length > 0) {
+              result = `🚫 **${ips.length} IPs bannies:**\n` + 
+                ips.slice(0, 15).map((ip: any) => `• \`${ip.ip_address}\` - ${ip.reason || 'Pas de raison'}`).join('\n');
+            } else {
+              result = `Aucune IP bannie.`;
+            }
+            break;
+          }
+
+          case 'create_license': {
+            if (!isAdmin) {
+              result = `❌ Seuls les créateurs peuvent créer des licences.`;
+            } else {
+              const planType = args.plan_type || 'standard';
+              const durationDays = planType === 'lifetime' ? null : (args.duration_days || 30);
+              const key = `PROTECT-${planType.toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+              await supabase.from('valid_licenses').insert({ license_key: key, plan_type: planType, duration_days: durationDays });
+              result = `🔑 **Licence créée!**\n\`\`\`${key}\`\`\`\n• Type: **${planType}**\n• Durée: **${planType === 'lifetime' ? 'Illimitée' : `${durationDays} jours`}**`;
+            }
+            break;
+          }
+
+          case 'list_licenses': {
+            const { data: licenses } = await supabase.from('bot_licenses').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(15);
+            if (licenses && licenses.length > 0) {
+              result = `🔑 **${licenses.length} licences actives:**\n` +
+                licenses.map((l: any) => `• \`${l.guild_id}\` - ${l.plan_type} ${l.expires_at ? `(expire ${new Date(l.expires_at).toLocaleDateString('fr-FR')})` : '(lifetime)'}`).join('\n');
+            } else {
+              result = `Aucune licence active.`;
+            }
+            break;
+          }
+
+          case 'revoke_license': {
+            if (!isAdmin) {
+              result = `❌ Seuls les créateurs peuvent révoquer des licences.`;
+            } else {
+              await supabase.from('bot_licenses').update({ is_active: false }).eq('guild_id', args.guild_id);
+              result = `✅ Licence du serveur \`${args.guild_id}\` révoquée`;
+            }
+            break;
+          }
+
+          case 'get_guild_config': {
+            const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+            const { data: statsConfig } = await supabase.from('stats_config').select('*').eq('id', 'main').single();
+            if (config) {
+              result = `⚙️ **Configuration du serveur:**\n` +
+                `• Antilink: ${config.antilink_enabled ? '✅' : '❌'}\n` +
+                `• Antispam: ${config.antispam_enabled ? '✅' : '❌'} (${config.antispam_max_messages || 5} msg/${config.antispam_timeframe || 5}s)\n` +
+                `• Antiraid: ${config.antiraid_enabled ? '✅' : '❌'} (${config.antiraid_max_joins || 10} joins/${config.antiraid_timeframe || 60}s)\n` +
+                `• Captcha: ${config.captcha_enabled ? '✅' : '❌'}\n` +
+                `• Showpic: ${config.showpic_enabled ? '✅' : '❌'}\n\n` +
+                `📊 **Stats:** Intervalle **${statsConfig?.stats_interval_seconds || 30}s**`;
+            } else {
+              result = `Aucune configuration pour ce serveur.`;
+            }
+            break;
+          }
+
+          case 'update_guild_config': {
+            const featureMap: Record<string, string> = {
+              antilink: 'antilink_enabled',
+              antispam: 'antispam_enabled',
+              antiraid: 'antiraid_enabled',
+              captcha: 'captcha_enabled',
+              showpic: 'showpic_enabled'
+            };
+            const column = featureMap[args.feature];
+            if (column) {
+              await supabase.from('guild_config').upsert({
+                id: guildId, guild_id: guildId, [column]: args.enabled, updated_at: new Date().toISOString()
+              }, { onConflict: 'guild_id' });
+              result = `✅ **${args.feature}** ${args.enabled ? 'activé' : 'désactivé'}`;
+            } else {
+              result = `❌ Fonctionnalité inconnue: ${args.feature}`;
+            }
+            break;
+          }
+
+          case 'update_antispam_settings': {
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (args.max_messages) updates.antispam_max_messages = Math.min(20, Math.max(1, args.max_messages));
+            if (args.timeframe) updates.antispam_timeframe = Math.min(60, Math.max(1, args.timeframe));
+            await supabase.from('guild_config').upsert({ id: guildId, guild_id: guildId, ...updates }, { onConflict: 'guild_id' });
+            result = `✅ Paramètres antispam mis à jour`;
+            break;
+          }
+
+          case 'update_antiraid_settings': {
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (args.max_joins) updates.antiraid_max_joins = Math.min(50, Math.max(1, args.max_joins));
+            if (args.timeframe) updates.antiraid_timeframe = Math.min(300, Math.max(10, args.timeframe));
+            await supabase.from('guild_config').upsert({ id: guildId, guild_id: guildId, ...updates }, { onConflict: 'guild_id' });
+            result = `✅ Paramètres antiraid mis à jour`;
+            break;
+          }
+
+          case 'list_sanctions': {
+            const limit = Math.min(20, args.limit || 10);
+            const { data: sanctions } = await supabase.from('sanctions').select('*').eq('guild_id', guildId).order('created_at', { ascending: false }).limit(limit);
+            if (sanctions && sanctions.length > 0) {
+              result = `⚖️ **${sanctions.length} dernières sanctions:**\n` +
+                sanctions.map((s: any) => `• <@${s.user_id}> - **${s.type}** - ${s.reason || 'Pas de raison'}`).join('\n');
+            } else {
+              result = `Aucune sanction sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'list_bot_owners': {
+            const { data: owners } = await supabase.from('bot_owners').select('*').eq('guild_id', guildId);
+            if (owners && owners.length > 0) {
+              result = `👑 **Bot Owners de ce serveur:**\n` + owners.map((o: any) => `• <@${o.user_id}>`).join('\n');
+            } else {
+              result = `Aucun bot owner sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'list_bot_buyers': {
+            const { data: buyers } = await supabase.from('bot_buyers').select('*').eq('guild_id', guildId);
+            if (buyers && buyers.length > 0) {
+              result = `🛒 **Buyers de ce serveur:**\n` + buyers.map((b: any) => `• <@${b.user_id}>`).join('\n');
+            } else {
+              result = `Aucun buyer sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'disable_command': {
+            const cmdName = args.command_name.toLowerCase().replace(/^\//, '');
+            const { data: existing } = await supabase.from('disabled_commands').select('*').eq('guild_id', guildId).eq('command_name', cmdName).single();
+            if (existing) {
+              result = `⚠️ La commande **/${cmdName}** est déjà désactivée.`;
+            } else {
+              await supabase.from('disabled_commands').insert({ guild_id: guildId, command_name: cmdName, disabled_by: userId });
+              result = `✅ La commande **/${cmdName}** a été désactivée sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'enable_command': {
+            const cmdName = args.command_name.toLowerCase().replace(/^\//, '');
+            const { error } = await supabase.from('disabled_commands').delete().eq('guild_id', guildId).eq('command_name', cmdName);
+            if (error) {
+              result = `❌ Erreur lors de la réactivation de **/${cmdName}**.`;
+            } else {
+              result = `✅ La commande **/${cmdName}** a été réactivée sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'list_disabled_commands': {
+            const { data: disabled } = await supabase.from('disabled_commands').select('*').eq('guild_id', guildId);
+            if (disabled && disabled.length > 0) {
+              result = `🚫 **Commandes désactivées:**\n` + disabled.map((d: any) => `• /${d.command_name}`).join('\n');
+            } else {
+              result = `Aucune commande désactivée sur ce serveur.`;
+            }
+            break;
+          }
+
+          case 'set_welcome_message': {
+            const updates: any = { welcome_message: args.message, updated_at: new Date().toISOString() };
+            if (args.channel_id) updates.welcome_channel_id = args.channel_id;
+            await supabase.from('guild_config').upsert({ id: guildId, guild_id: guildId, ...updates }, { onConflict: 'guild_id' });
+            result = `✅ Message de bienvenue configuré:\n"${args.message}"`;
+            break;
+          }
+
+          case 'set_goodbye_message': {
+            await supabase.from('guild_config').upsert({
+              id: guildId, guild_id: guildId, goodbye_message: args.message, updated_at: new Date().toISOString()
+            }, { onConflict: 'guild_id' });
+            result = `✅ Message d'au revoir configuré:\n"${args.message}"`;
+            break;
+          }
+
+          case 'general_response': {
+            result = args.response;
+            break;
+          }
+
+          default:
+            result = `❓ Action inconnue: ${fnName}`;
+        }
+
+        toolResults.push(result);
+      }
+
+      const finalResult = toolResults.join('\n\n');
+      return publicMsg('', [{
+        title: '🤖 Action Exécutée',
+        description: finalResult,
+        color: 0x22C55E,
+        fields: [{ name: '❓ Demande', value: originalQuestion.length > 500 ? originalQuestion.substring(0, 500) + '...' : originalQuestion, inline: false }],
+        footer: { text: `${userName} • Protect Bot IA` },
+        timestamp: new Date().toISOString()
+      }]);
+    }
+
+    // Si l'IA a juste répondu du texte
+    const content = message.content || "Je n'ai pas compris ta demande. Essaie d'être plus précis.";
     return publicMsg('', [{
-      title: actionSuccess ? '🤖 Action Exécutée' : '🤖 Réponse',
-      description: actionResult,
-      color: actionSuccess ? 0x22C55E : 0x8B5CF6,
+      title: '🤖 Réponse',
+      description: content,
+      color: 0x8B5CF6,
       fields: [{ name: '❓ Demande', value: originalQuestion.length > 500 ? originalQuestion.substring(0, 500) + '...' : originalQuestion, inline: false }],
       footer: { text: `${userName} • Protect Bot IA` },
       timestamp: new Date().toISOString()
     }]);
 
   } catch (error) {
-    console.error('[IA] Error:', error);
+    console.error('[IA Agent] Error:', error);
     return ephemeral(`❌ Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
   }
 }
