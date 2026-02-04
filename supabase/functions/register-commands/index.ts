@@ -758,6 +758,14 @@ serve(async (req) => {
         name: 'payment',
         description: '💳 Affiche les informations de paiement (PayPal & Litecoin)',
         dm_permission: true
+      },
+      // --- AI COMMAND ---
+      {
+        name: 'ia',
+        description: '🤖 Pose une question à l\'IA',
+        options: [
+          { name: 'question', description: 'Ta question ou demande', type: 3, required: true }
+        ]
       }
     ];
 
