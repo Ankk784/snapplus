@@ -431,6 +431,7 @@ export type Database = {
           last_update: string | null
           started_at: string | null
           stats_channel_id: string | null
+          stats_interval_seconds: number | null
           stats_message_id: string | null
         }
         Insert: {
@@ -438,6 +439,7 @@ export type Database = {
           last_update?: string | null
           started_at?: string | null
           stats_channel_id?: string | null
+          stats_interval_seconds?: number | null
           stats_message_id?: string | null
         }
         Update: {
@@ -445,6 +447,7 @@ export type Database = {
           last_update?: string | null
           started_at?: string | null
           stats_channel_id?: string | null
+          stats_interval_seconds?: number | null
           stats_message_id?: string | null
         }
         Relationships: []

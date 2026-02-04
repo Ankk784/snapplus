@@ -3138,37 +3138,156 @@ function handlePayment(interaction: any) {
   }]);
 }
 
-// AI command - uses Lovable AI Gateway
-async function handleIA(interaction: any) {
+// AI command - uses Lovable AI Gateway with tool calling
+async function handleIA(interaction: any, supabase: any) {
   const question = interaction.data.options?.find((o: any) => o.name === 'question')?.value;
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  const guildId = interaction.guild_id;
   
   if (!question) {
     return ephemeral('❌ Tu dois poser une question.');
   }
+
+  // Only creators and bot owners can execute actions
+  const canExecuteActions = isCreateur(userId) || await isOwner(supabase, guildId, userId);
 
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
     return ephemeral('❌ L\'IA n\'est pas configurée sur ce bot.');
   }
 
+  // Define available tools for the AI
+  const tools = canExecuteActions ? [
+    {
+      type: "function",
+      function: {
+        name: "update_stats_interval",
+        description: "Modifier l'intervalle de mise à jour des statistiques Discord (en secondes). Minimum 10s, maximum 300s.",
+        parameters: {
+          type: "object",
+          properties: {
+            interval_seconds: { 
+              type: "number", 
+              description: "Nouvel intervalle en secondes (10-300)",
+              minimum: 10,
+              maximum: 300
+            }
+          },
+          required: ["interval_seconds"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "update_guild_config",
+        description: "Modifier la configuration du serveur Discord (antilink, antispam, antiraid, welcome, logs, etc.)",
+        parameters: {
+          type: "object",
+          properties: {
+            setting: {
+              type: "string",
+              enum: ["antilink_enabled", "antispam_enabled", "antiraid_enabled", "captcha_enabled", "showpic_enabled", "hide_no_permission_reply"],
+              description: "Le paramètre à modifier"
+            },
+            value: {
+              type: "boolean",
+              description: "La nouvelle valeur (true/false)"
+            }
+          },
+          required: ["setting", "value"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "update_antispam_settings",
+        description: "Modifier les paramètres de l'antispam",
+        parameters: {
+          type: "object",
+          properties: {
+            max_messages: { type: "number", description: "Nombre max de messages avant sanction (1-20)" },
+            timeframe: { type: "number", description: "Fenêtre de temps en secondes (1-60)" },
+            sanction: { type: "string", enum: ["mute", "kick", "ban", "warn"], description: "Type de sanction" }
+          }
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "update_antiraid_settings",
+        description: "Modifier les paramètres de l'antiraid",
+        parameters: {
+          type: "object",
+          properties: {
+            max_joins: { type: "number", description: "Nombre max de joins avant activation (1-50)" },
+            timeframe: { type: "number", description: "Fenêtre de temps en secondes (10-300)" }
+          }
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_current_config",
+        description: "Obtenir la configuration actuelle du serveur",
+        parameters: {
+          type: "object",
+          properties: {}
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "get_stats_config",
+        description: "Obtenir la configuration actuelle des statistiques",
+        parameters: {
+          type: "object",
+          properties: {}
+        }
+      }
+    }
+  ] : [];
+
   try {
+    const systemPrompt = canExecuteActions 
+      ? `Tu es un assistant IA francophone intégré au bot Discord "Protect Bot". Tu peux exécuter des actions sur le bot.
+
+Capacités disponibles:
+- Modifier l'intervalle des stats (10-300 secondes)
+- Activer/désactiver: antilink, antispam, antiraid, captcha, showpic
+- Modifier les paramètres antispam/antiraid
+- Consulter la configuration actuelle
+
+Si l'utilisateur demande une modification, utilise l'outil approprié. Sinon, réponds normalement.
+Limite tes réponses à 2000 caractères. Utilise le markdown Discord.`
+      : `Tu es un assistant IA francophone intégré au bot Discord "Protect Bot". Tu réponds de manière concise et amicale. Limite tes réponses à 2000 caractères. Tu peux utiliser le markdown Discord.
+
+Note: L'utilisateur n'a pas les permissions pour exécuter des actions sur le bot (réservé aux créateurs et bot owners).`;
+
+    const requestBody: any = {
+      model: 'google/gemini-3-flash-preview',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: question }
+      ],
+      max_tokens: 1000,
+    };
+
+    if (tools.length > 0) {
+      requestBody.tools = tools;
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Tu es un assistant IA francophone intégré à un bot Discord appelé "Protect Bot". Tu réponds de manière concise, utile et amicale. Limite tes réponses à 2000 caractères maximum pour Discord. Tu peux utiliser le markdown Discord (gras, italique, code, etc.).'
-          },
-          { role: 'user', content: question }
-        ],
-        max_tokens: 1000,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -3183,9 +3302,140 @@ async function handleIA(interaction: any) {
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content || 'Pas de réponse.';
-    
-    // Truncate if too long for Discord (max 4096 for embed description)
+    const choice = data.choices?.[0];
+    const message = choice?.message;
+
+    // Check if AI wants to call a tool
+    if (message?.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+      const toolName = toolCall.function.name;
+      const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+      
+      let actionResult = '';
+      let actionSuccess = false;
+
+      try {
+        switch (toolName) {
+          case 'update_stats_interval': {
+            const interval = Math.min(300, Math.max(10, toolArgs.interval_seconds));
+            await supabase.from('stats_config').update({ 
+              stats_interval_seconds: interval 
+            }).eq('id', 'main');
+            actionResult = `✅ Intervalle des stats modifié à **${interval} secondes**`;
+            actionSuccess = true;
+            break;
+          }
+          
+          case 'update_guild_config': {
+            const { setting, value } = toolArgs;
+            await supabase.from('guild_config').upsert({
+              id: guildId,
+              guild_id: guildId,
+              [setting]: value,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'guild_id' });
+            actionResult = `✅ **${setting}** modifié à **${value}**`;
+            actionSuccess = true;
+            break;
+          }
+          
+          case 'update_antispam_settings': {
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (toolArgs.max_messages) updates.antispam_max_messages = Math.min(20, Math.max(1, toolArgs.max_messages));
+            if (toolArgs.timeframe) updates.antispam_timeframe = Math.min(60, Math.max(1, toolArgs.timeframe));
+            if (toolArgs.sanction) updates.antispam_sanction = toolArgs.sanction;
+            
+            await supabase.from('guild_config').upsert({
+              id: guildId,
+              guild_id: guildId,
+              ...updates
+            }, { onConflict: 'guild_id' });
+            actionResult = `✅ Paramètres antispam mis à jour`;
+            actionSuccess = true;
+            break;
+          }
+          
+          case 'update_antiraid_settings': {
+            const updates: any = { updated_at: new Date().toISOString() };
+            if (toolArgs.max_joins) updates.antiraid_max_joins = Math.min(50, Math.max(1, toolArgs.max_joins));
+            if (toolArgs.timeframe) updates.antiraid_timeframe = Math.min(300, Math.max(10, toolArgs.timeframe));
+            
+            await supabase.from('guild_config').upsert({
+              id: guildId,
+              guild_id: guildId,
+              ...updates
+            }, { onConflict: 'guild_id' });
+            actionResult = `✅ Paramètres antiraid mis à jour`;
+            actionSuccess = true;
+            break;
+          }
+          
+          case 'get_current_config': {
+            const { data: config } = await supabase.from('guild_config')
+              .select('*')
+              .eq('guild_id', guildId)
+              .single();
+            
+            if (config) {
+              actionResult = `**Configuration actuelle:**\n` +
+                `• Antilink: ${config.antilink_enabled ? '✅' : '❌'}\n` +
+                `• Antispam: ${config.antispam_enabled ? '✅' : '❌'} (${config.antispam_max_messages} msg/${config.antispam_timeframe}s)\n` +
+                `• Antiraid: ${config.antiraid_enabled ? '✅' : '❌'} (${config.antiraid_max_joins} joins/${config.antiraid_timeframe}s)\n` +
+                `• Captcha: ${config.captcha_enabled ? '✅' : '❌'}\n` +
+                `• Showpic: ${config.showpic_enabled ? '✅' : '❌'}`;
+            } else {
+              actionResult = `Aucune configuration trouvée pour ce serveur.`;
+            }
+            actionSuccess = true;
+            break;
+          }
+          
+          case 'get_stats_config': {
+            const { data: config } = await supabase.from('stats_config')
+              .select('*')
+              .eq('id', 'main')
+              .single();
+            
+            if (config) {
+              actionResult = `**Configuration des stats:**\n` +
+                `• Intervalle: **${config.stats_interval_seconds || 30}s**\n` +
+                `• Channel ID: ${config.stats_channel_id || 'Non configuré'}\n` +
+                `• Dernière MAJ: ${config.last_update ? new Date(config.last_update).toLocaleString('fr-FR') : 'Jamais'}`;
+            } else {
+              actionResult = `Aucune configuration de stats trouvée.`;
+            }
+            actionSuccess = true;
+            break;
+          }
+          
+          default:
+            actionResult = `❌ Action inconnue: ${toolName}`;
+        }
+      } catch (error) {
+        console.error('Tool execution error:', error);
+        actionResult = `❌ Erreur lors de l'exécution: ${error instanceof Error ? error.message : 'Erreur inconnue'}`;
+      }
+
+      const userName = interaction.member?.user?.username || interaction.user?.username || 'Utilisateur';
+      
+      return publicMsg('', [{
+        title: actionSuccess ? '🤖 Action Exécutée' : '🤖 Résultat',
+        description: actionResult,
+        color: actionSuccess ? 0x22C55E : 0xEF4444,
+        fields: [
+          {
+            name: '❓ Demande',
+            value: question.length > 500 ? question.substring(0, 500) + '...' : question,
+            inline: false
+          }
+        ],
+        footer: { text: `Exécuté par ${userName} • Protect Bot IA` },
+        timestamp: new Date().toISOString()
+      }]);
+    }
+
+    // Normal text response
+    const aiResponse = message?.content || 'Pas de réponse.';
     const truncatedResponse = aiResponse.length > 3900 
       ? aiResponse.substring(0, 3900) + '...\n\n*[Réponse tronquée]*'
       : aiResponse;
@@ -3364,7 +3614,7 @@ serve(async (req) => {
         case 'payment': return handlePayment(interaction);
 
         // AI command
-        case 'ia': return await handleIA(interaction);
+        case 'ia': return await handleIA(interaction, supabase);
 
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);
