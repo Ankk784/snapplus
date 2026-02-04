@@ -3785,10 +3785,25 @@ serve(async (req) => {
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
+    const guildId = interaction.guild_id;
+    
+    // Check if command is disabled on this guild (skip for créateurs)
+    if (guildId && !isCreateur(userId)) {
+      const { data: disabledCmd } = await supabase
+        .from('disabled_commands')
+        .select('*')
+        .eq('guild_id', guildId)
+        .eq('command_name', cmd)
+        .single();
+      
+      if (disabledCmd) {
+        return ephemeral(`🚫 La commande \`/${cmd}\` est désactivée sur ce serveur.`);
+      }
+    }
     
     // Check license for all other commands (only if in a guild AND not a créateur)
-    if (!freeCmds.includes(cmd) && interaction.guild_id && !isCreateur(userId)) {
-      const licenseCheck = await requireLicense(supabase, interaction.guild_id);
+    if (!freeCmds.includes(cmd) && guildId && !isCreateur(userId)) {
+      const licenseCheck = await requireLicense(supabase, guildId);
       if (licenseCheck) return licenseCheck;
     }
 
