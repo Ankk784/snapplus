@@ -3138,6 +3138,81 @@ function handlePayment(interaction: any) {
   }]);
 }
 
+// AI command - uses Lovable AI Gateway
+async function handleIA(interaction: any) {
+  const question = interaction.data.options?.find((o: any) => o.name === 'question')?.value;
+  
+  if (!question) {
+    return ephemeral('❌ Tu dois poser une question.');
+  }
+
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    return ephemeral('❌ L\'IA n\'est pas configurée sur ce bot.');
+  }
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Tu es un assistant IA francophone intégré à un bot Discord appelé "Protect Bot". Tu réponds de manière concise, utile et amicale. Limite tes réponses à 2000 caractères maximum pour Discord. Tu peux utiliser le markdown Discord (gras, italique, code, etc.).'
+          },
+          { role: 'user', content: question }
+        ],
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return ephemeral('⏳ Trop de requêtes, réessaie dans quelques secondes.');
+      }
+      if (response.status === 402) {
+        return ephemeral('💳 Crédits IA épuisés.');
+      }
+      console.error('AI API error:', response.status);
+      return ephemeral('❌ Erreur de l\'IA, réessaie plus tard.');
+    }
+
+    const data = await response.json();
+    const aiResponse = data.choices?.[0]?.message?.content || 'Pas de réponse.';
+    
+    // Truncate if too long for Discord (max 4096 for embed description)
+    const truncatedResponse = aiResponse.length > 3900 
+      ? aiResponse.substring(0, 3900) + '...\n\n*[Réponse tronquée]*'
+      : aiResponse;
+
+    const userName = interaction.member?.user?.username || interaction.user?.username || 'Utilisateur';
+
+    return publicMsg('', [{
+      title: '🤖 Réponse IA',
+      description: truncatedResponse,
+      color: 0x8B5CF6,
+      fields: [
+        {
+          name: '❓ Question',
+          value: question.length > 1000 ? question.substring(0, 1000) + '...' : question,
+          inline: false
+        }
+      ],
+      footer: { text: `Demandé par ${userName} • Protect Bot IA` },
+      timestamp: new Date().toISOString()
+    }]);
+
+  } catch (error) {
+    console.error('AI error:', error);
+    return ephemeral('❌ Une erreur est survenue avec l\'IA.');
+  }
+}
+
 serve(async (req) => {
   const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
   
@@ -3287,6 +3362,9 @@ serve(async (req) => {
 
         // Payment info command
         case 'payment': return handlePayment(interaction);
+
+        // AI command
+        case 'ia': return await handleIA(interaction);
 
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);
