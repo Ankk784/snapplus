@@ -29,7 +29,7 @@ const CodeVerification = ({ onSubmit, error }: CodeVerificationProps) => {
       <input
         type="text"
         maxLength={4}
-        placeholder="1234"
+        placeholder="0000"
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
         className="gold-input w-full text-center text-xl tracking-[0.5em] font-mono"
