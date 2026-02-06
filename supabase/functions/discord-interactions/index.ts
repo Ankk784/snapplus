@@ -1793,8 +1793,15 @@ async function handleBuy(interaction: any, _supabase: any) {
   }
 }
 
-// Redeem command - owner validates payment and sends license
+// Redeem command - owner validates payment and sends license (CRÉATEUR ONLY)
 async function handleRedeem(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  // Only creators can use redeem
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
   const userId = getOption(interaction.data.options, 'user') as string;
   const plan = getOption(interaction.data.options, 'plan') as string;
 
@@ -1865,8 +1872,15 @@ async function handleRedeem(interaction: any, supabase: any) {
   }]);
 }
 
-// Set PayPal config
+// Set PayPal config (CRÉATEUR ONLY)
 async function handleSetPaypal(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  // Only creators can configure payment settings
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
   const email = getOption(interaction.data.options, 'email') as string;
   const priceStandard = getOption(interaction.data.options, 'price_standard') as string | undefined;
   const pricePremium = getOption(interaction.data.options, 'price_premium') as string | undefined;
@@ -1897,6 +1911,43 @@ async function handleSetPaypal(interaction: any, supabase: any) {
       ...(priceStandard ? [{ name: '📦 Standard', value: priceStandard, inline: true }] : []),
       ...(pricePremium ? [{ name: '⭐ Premium', value: pricePremium, inline: true }] : []),
       ...(priceLifetime ? [{ name: '💎 Lifetime', value: priceLifetime, inline: true }] : [])
+    ]
+  }]);
+}
+
+// Set Litecoin address (CRÉATEUR ONLY)
+async function handleSetLtc(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  
+  // Only creators can configure payment settings
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const address = getOption(interaction.data.options, 'address') as string;
+
+  if (!address || !address.startsWith('ltc1')) {
+    return ephemeral('❌ Adresse Litecoin invalide. Elle doit commencer par `ltc1`.');
+  }
+
+  const { error } = await supabase
+    .from('payment_config')
+    .upsert({ 
+      id: 'main', 
+      ltc_address: address,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) {
+    console.error('SetLtc error:', error);
+    return ephemeral('❌ Erreur lors de la configuration.');
+  }
+
+  return ephemeral('', [{
+    title: '✅ Adresse Litecoin configurée',
+    color: 0x22C55E,
+    fields: [
+      { name: '💰 Adresse LTC', value: `\`${address}\``, inline: false }
     ]
   }]);
 }
@@ -3100,8 +3151,8 @@ function handlePing(interaction: any) {
   }]);
 }
 
-// Payment info command (Créateur only)
-function handlePayment(interaction: any) {
+// Payment info command (Créateur only) - reads from DB
+async function handlePayment(interaction: any, supabase: any) {
   const userId = interaction.member?.user?.id || interaction.user?.id;
   
   // Only creators can use this command
@@ -3109,8 +3160,15 @@ function handlePayment(interaction: any) {
     return ephemeral(`❌ Cette commande est réservée aux créateurs.`);
   }
 
-  const paypalEmail = 'draizone.music@gmail.com';
-  const litecoinAddress = 'ltc1qvr99ysd4j3d46h6p84flf2z9m4wnuxlx3rqflh';
+  // Get payment config from database
+  const { data: config } = await supabase
+    .from('payment_config')
+    .select('*')
+    .eq('id', 'main')
+    .single();
+
+  const paypalEmail = config?.paypal_email || 'Non configuré';
+  const litecoinAddress = config?.ltc_address || 'Non configuré';
 
   return publicMsg('', [{
     title: '💳 Informations de Paiement',
@@ -3123,7 +3181,7 @@ function handlePayment(interaction: any) {
         inline: false
       },
       {
-        name: '🪙 Litecoin (Exodus)',
+        name: '🪙 Litecoin (LTC)',
         value: `\`\`\`${litecoinAddress}\`\`\``,
         inline: false
       },
@@ -3781,7 +3839,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -3888,6 +3946,7 @@ serve(async (req) => {
         case 'buy': return handleBuy(interaction, supabase);
         case 'redeem': return handleRedeem(interaction, supabase);
         case 'setpaypal': return handleSetPaypal(interaction, supabase);
+        case 'setltc': return handleSetLtc(interaction, supabase);
 
         // Owner/Buyer commands
         case 'buyer': return handleBuyer(interaction, supabase);
@@ -3912,7 +3971,7 @@ serve(async (req) => {
         case 'removetoken': return handleRemoveToken(interaction, supabase);
 
         // Payment info command
-        case 'payment': return handlePayment(interaction);
+        case 'payment': return handlePayment(interaction, supabase);
 
         // AI command
         case 'ia': return await handleIA(interaction, supabase);

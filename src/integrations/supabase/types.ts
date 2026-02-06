@@ -341,6 +341,7 @@ export type Database = {
       payment_config: {
         Row: {
           id: string
+          ltc_address: string | null
           paypal_email: string | null
           price_lifetime: string | null
           price_premium: string | null
@@ -349,6 +350,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          ltc_address?: string | null
           paypal_email?: string | null
           price_lifetime?: string | null
           price_premium?: string | null
@@ -357,6 +359,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          ltc_address?: string | null
           paypal_email?: string | null
           price_lifetime?: string | null
           price_premium?: string | null
