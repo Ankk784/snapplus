@@ -547,13 +547,21 @@ serve(async (req) => {
       },
       {
         name: 'setpaypal',
-        description: 'Configurer les infos PayPal pour /buy (Owner)',
+        description: 'Configurer les infos PayPal pour /buy (Créateur)',
         default_member_permissions: '8',
         options: [
           { name: 'email', description: 'Email PayPal', type: 3, required: true },
           { name: 'price_standard', description: 'Prix plan Standard (ex: 5€)', type: 3, required: false },
           { name: 'price_premium', description: 'Prix plan Premium (ex: 12€)', type: 3, required: false },
           { name: 'price_lifetime', description: 'Prix plan Lifetime (ex: 25€)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'setltc',
+        description: 'Configurer l\'adresse Litecoin pour les paiements (Créateur)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'address', description: 'Adresse Litecoin (commence par ltc1)', type: 3, required: true }
         ]
       },
       // --- CONFIGURATION AVANCÉE ---
