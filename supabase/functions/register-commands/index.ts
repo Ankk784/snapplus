@@ -561,7 +561,7 @@ serve(async (req) => {
         description: 'Configurer l\'adresse Litecoin pour les paiements (Créateur)',
         default_member_permissions: '8',
         options: [
-          { name: 'address', description: 'Adresse Litecoin (commence par ltc1)', type: 3, required: true }
+          { name: 'address', description: 'Adresse Litecoin', type: 3, required: true }
         ]
       },
       // --- CONFIGURATION AVANCÉE ---
