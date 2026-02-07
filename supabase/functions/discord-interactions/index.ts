@@ -1926,8 +1926,8 @@ async function handleSetLtc(interaction: any, supabase: any) {
 
   const address = getOption(interaction.data.options, 'address') as string;
 
-  if (!address || !address.startsWith('ltc1')) {
-    return ephemeral('❌ Adresse Litecoin invalide. Elle doit commencer par `ltc1`.');
+  if (!address || address.length < 20) {
+    return ephemeral('❌ Adresse Litecoin invalide.');
   }
 
   const { error } = await supabase
