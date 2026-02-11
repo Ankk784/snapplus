@@ -132,7 +132,48 @@ function modEmbed(options: {
   };
 }
 
-// Moderation command handlers
+// ========== LOG HELPER ==========
+// Send a log message to the appropriate log channel
+async function sendLog(guildId: string, supabase: any, logType: 'mod' | 'raid' | 'msg' | 'role' | 'voice' | 'boost', embed: any) {
+  try {
+    const columnMap = {
+      mod: 'mod_logs_channel_id',
+      raid: 'raid_logs_channel_id',
+      msg: 'msg_logs_channel_id',
+      role: 'role_logs_channel_id',
+      voice: 'voice_logs_channel_id',
+      boost: 'boost_logs_channel_id',
+    };
+
+    const { data: config } = await supabase
+      .from('guild_config')
+      .select(columnMap[logType])
+      .eq('guild_id', guildId)
+      .single();
+
+    const channelId = config?.[columnMap[logType]];
+    if (!channelId) return; // No log channel configured
+
+    await discordFetch(`/channels/${channelId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ embeds: [embed] })
+    });
+  } catch (e) {
+    console.error('Failed to send log:', e);
+  }
+}
+
+// Create a simple log embed
+function logEmbed(options: { title: string; description: string; color?: number; fields?: any[] }) {
+  return {
+    title: options.title,
+    description: options.description,
+    color: options.color || 0x2B2D31,
+    fields: options.fields || [],
+    timestamp: new Date().toISOString(),
+  };
+}
+
 async function handleBan(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
   const modId = interaction.member.user.id;
@@ -162,6 +203,14 @@ async function handleBan(interaction: any, supabase: any) {
     reason,
     active: true
   });
+
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🔨 Bannissement',
+    description: `<@${modId}> a banni <@${targetId}> (${targetUser.username || targetId})`,
+    color: 0xEF4444,
+    fields: [{ name: '📝 Raison', value: reason, inline: false }]
+  }));
 
   return publicMsg('', [modEmbed({
     action: 'Bannissement',
@@ -213,6 +262,14 @@ async function handleKick(interaction: any, supabase: any) {
     active: false
   });
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '👢 Expulsion',
+    description: `<@${modId}> a expulsé <@${targetId}> (${targetUser.username || targetId})`,
+    color: 0xF97316,
+    fields: [{ name: '📝 Raison', value: reason, inline: false }]
+  }));
+
   return publicMsg('', [modEmbed({
     action: 'Expulsion',
     targetId,
@@ -259,6 +316,14 @@ async function handleMute(interaction: any, supabase: any) {
     active: true
   });
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🔇 Mute',
+    description: `<@${modId}> a mute <@${targetId}> (${targetUser.username || targetId}) pour ${formatDuration(durationMs)}`,
+    color: 0xF59E0B,
+    fields: [{ name: '📝 Raison', value: reason, inline: false }]
+  }));
+
   return publicMsg('', [modEmbed({
     action: 'Mute (Timeout)',
     targetId,
@@ -270,8 +335,9 @@ async function handleMute(interaction: any, supabase: any) {
   })]);
 }
 
-async function handleUnmute(interaction: any) {
+async function handleUnmute(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const targetId = getOption(interaction.data.options, 'membre') as string;
 
   const res = await discordFetch(`/guilds/${guildId}/members/${targetId}`, {
@@ -283,10 +349,19 @@ async function handleUnmute(interaction: any) {
     return ephemeral(`❌ Impossible de unmute cet utilisateur.`);
   }
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🔊 Unmute',
+    description: `<@${modId}> a unmute <@${targetId}>`,
+    color: 0x22C55E,
+  }));
+
   return publicMsg(`✅ <@${targetId}> a été unmute.`);
 }
 
-async function handleClear(interaction: any) {
+async function handleClear(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const channelId = interaction.channel_id;
   const count = Math.min(Math.max(getOption(interaction.data.options, 'nombre') as number, 1), 100);
   const memberId = getOption(interaction.data.options, 'membre') as string | undefined;
@@ -319,30 +394,45 @@ async function handleClear(interaction: any) {
     });
   }
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🗑️ Clear',
+    description: `<@${modId}> a clear dans le salon <#${channelId}> : ${toDelete.length} messages`,
+    color: 0x3B82F6,
+  }));
+
   return ephemeral(`✅ ${toDelete.length} message(s) supprimé(s).`);
 }
 
-async function handleLock(interaction: any) {
+async function handleLock(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
 
-  // Get @everyone role (same ID as guild)
   const everyoneRoleId = guildId;
 
   const res = await discordFetch(`/channels/${channelId}/permissions/${everyoneRoleId}`, {
     method: 'PUT',
-    body: JSON.stringify({ type: 0, deny: '2048' }) // SEND_MESSAGES
+    body: JSON.stringify({ type: 0, deny: '2048' })
   });
 
   if (!res.ok) {
     return ephemeral(`❌ Impossible de verrouiller le salon.`);
   }
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🔒 Verrouillage',
+    description: `<@${modId}> a verrouillé le salon <#${channelId}>`,
+    color: 0xEF4444,
+  }));
+
   return publicMsg(`🔒 Le salon <#${channelId}> a été verrouillé.`);
 }
 
-async function handleUnlock(interaction: any) {
+async function handleUnlock(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const channelId = getOption(interaction.data.options, 'salon') as string || interaction.channel_id;
   const everyoneRoleId = guildId;
 
@@ -355,11 +445,19 @@ async function handleUnlock(interaction: any) {
     return ephemeral(`❌ Impossible de déverrouiller le salon.`);
   }
 
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '🔓 Déverrouillage',
+    description: `<@${modId}> a déverrouillé le salon <#${channelId}>`,
+    color: 0x22C55E,
+  }));
+
   return publicMsg(`🔓 Le salon <#${channelId}> a été déverrouillé.`);
 }
 
-async function handleAddRole(interaction: any) {
+async function handleAddRole(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const memberId = getOption(interaction.data.options, 'membre') as string;
   const roleId = getOption(interaction.data.options, 'role') as string;
 
@@ -371,11 +469,24 @@ async function handleAddRole(interaction: any) {
     return ephemeral(`❌ Impossible d'ajouter le rôle.`);
   }
 
+  // Get member info for log
+  const memberRes = await discordFetch(`/guilds/${guildId}/members/${memberId}`);
+  const member = await memberRes.json();
+  const memberName = member.user?.username || memberId;
+
+  // Send log
+  sendLog(guildId, supabase, 'role', logEmbed({
+    title: memberName,
+    description: `<@${modId}> a ajouté le rôle <@&${roleId}> à ${memberName}`,
+    color: 0x22C55E,
+  }));
+
   return publicMsg(`✅ Le rôle <@&${roleId}> a été ajouté à <@${memberId}>.`);
 }
 
-async function handleDelRole(interaction: any) {
+async function handleDelRole(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
+  const modId = interaction.member.user.id;
   const memberId = getOption(interaction.data.options, 'membre') as string;
   const roleId = getOption(interaction.data.options, 'role') as string;
 
@@ -386,6 +497,18 @@ async function handleDelRole(interaction: any) {
   if (!res.ok) {
     return ephemeral(`❌ Impossible de retirer le rôle.`);
   }
+
+  // Get member info for log
+  const memberRes = await discordFetch(`/guilds/${guildId}/members/${memberId}`);
+  const member = await memberRes.json();
+  const memberName = member.user?.username || memberId;
+
+  // Send log
+  sendLog(guildId, supabase, 'role', logEmbed({
+    title: memberName,
+    description: `<@${modId}> a retiré le rôle <@&${roleId}> à ${memberName}`,
+    color: 0xEF4444,
+  }));
 
   return publicMsg(`✅ Le rôle <@&${roleId}> a été retiré de <@${memberId}>.`);
 }
@@ -492,6 +615,17 @@ async function handleWarn(interaction: any, supabase: any) {
     .eq('guild_id', guildId)
     .eq('user_id', targetId)
     .eq('type', 'warn');
+
+  // Send log
+  sendLog(guildId, supabase, 'mod', logEmbed({
+    title: '⚠️ Avertissement',
+    description: `<@${modId}> a averti <@${targetId}> (${targetUser.username || targetId})`,
+    color: 0xF59E0B,
+    fields: [
+      { name: '📝 Raison', value: reason || 'Aucune raison', inline: false },
+      { name: '📊 Total', value: `${count || 1} avertissement(s)`, inline: true }
+    ]
+  }));
 
   return publicMsg('', [modEmbed({
     action: 'Avertissement',
@@ -3972,12 +4106,12 @@ serve(async (req) => {
         case 'unban': return handleUnban(interaction);
         case 'kick': return handleKick(interaction, supabase);
         case 'mute': return handleMute(interaction, supabase);
-        case 'unmute': return handleUnmute(interaction);
-        case 'clear': return handleClear(interaction);
-        case 'lock': return handleLock(interaction);
-        case 'unlock': return handleUnlock(interaction);
-        case 'addrole': return handleAddRole(interaction);
-        case 'delrole': return handleDelRole(interaction);
+        case 'unmute': return handleUnmute(interaction, supabase);
+        case 'clear': return handleClear(interaction, supabase);
+        case 'lock': return handleLock(interaction, supabase);
+        case 'unlock': return handleUnlock(interaction, supabase);
+        case 'addrole': return handleAddRole(interaction, supabase);
+        case 'delrole': return handleDelRole(interaction, supabase);
         case 'sanctions': return handleSanctions(interaction, supabase);
         case 'banlist': return handleBanlist(interaction);
         case 'mutelist': return handleMutelist(interaction);
