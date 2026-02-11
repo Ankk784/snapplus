@@ -222,6 +222,7 @@ export type Database = {
           antispam_max_messages: number | null
           antispam_sanction: string | null
           antispam_timeframe: number | null
+          boost_logs_channel_id: string | null
           captcha_channel_id: string | null
           captcha_enabled: boolean | null
           captcha_role_id: string | null
@@ -230,14 +231,20 @@ export type Database = {
           guild_id: string
           hide_no_permission_reply: boolean | null
           id: string
+          logs_category_id: string | null
           logs_channel_id: string | null
+          mod_logs_channel_id: string | null
+          msg_logs_channel_id: string | null
           public_allowed_channels: string[] | null
           public_denied_channels: string[] | null
+          raid_logs_channel_id: string | null
+          role_logs_channel_id: string | null
           showpic_channel_id: string | null
           showpic_enabled: boolean | null
           ticket_category_id: string | null
           ticket_support_role_id: string | null
           updated_at: string
+          voice_logs_channel_id: string | null
           welcome_channel_id: string | null
           welcome_message: string | null
         }
@@ -253,6 +260,7 @@ export type Database = {
           antispam_max_messages?: number | null
           antispam_sanction?: string | null
           antispam_timeframe?: number | null
+          boost_logs_channel_id?: string | null
           captcha_channel_id?: string | null
           captcha_enabled?: boolean | null
           captcha_role_id?: string | null
@@ -261,14 +269,20 @@ export type Database = {
           guild_id: string
           hide_no_permission_reply?: boolean | null
           id: string
+          logs_category_id?: string | null
           logs_channel_id?: string | null
+          mod_logs_channel_id?: string | null
+          msg_logs_channel_id?: string | null
           public_allowed_channels?: string[] | null
           public_denied_channels?: string[] | null
+          raid_logs_channel_id?: string | null
+          role_logs_channel_id?: string | null
           showpic_channel_id?: string | null
           showpic_enabled?: boolean | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
+          voice_logs_channel_id?: string | null
           welcome_channel_id?: string | null
           welcome_message?: string | null
         }
@@ -284,6 +298,7 @@ export type Database = {
           antispam_max_messages?: number | null
           antispam_sanction?: string | null
           antispam_timeframe?: number | null
+          boost_logs_channel_id?: string | null
           captcha_channel_id?: string | null
           captcha_enabled?: boolean | null
           captcha_role_id?: string | null
@@ -292,14 +307,20 @@ export type Database = {
           guild_id?: string
           hide_no_permission_reply?: boolean | null
           id?: string
+          logs_category_id?: string | null
           logs_channel_id?: string | null
+          mod_logs_channel_id?: string | null
+          msg_logs_channel_id?: string | null
           public_allowed_channels?: string[] | null
           public_denied_channels?: string[] | null
+          raid_logs_channel_id?: string | null
+          role_logs_channel_id?: string | null
           showpic_channel_id?: string | null
           showpic_enabled?: boolean | null
           ticket_category_id?: string | null
           ticket_support_role_id?: string | null
           updated_at?: string
+          voice_logs_channel_id?: string | null
           welcome_channel_id?: string | null
           welcome_message?: string | null
         }

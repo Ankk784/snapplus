@@ -304,12 +304,10 @@ serve(async (req) => {
       },
       // --- CONFIGURATION ---
       {
-        name: 'setlogs',
-        description: 'Définir le salon des logs',
+        name: 'logs',
+        description: '📋 Créer automatiquement la catégorie et les salons de logs',
         default_member_permissions: '8',
-        options: [
-          { name: 'salon', description: 'Salon des logs', type: 7, required: true }
-        ]
+        options: []
       },
       {
         name: 'setwelcome',

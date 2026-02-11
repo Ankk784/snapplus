@@ -539,7 +539,7 @@ function handleHelp(interaction: any) {
       "`/ticket` `/close` `/add` `/remove` `/rename`\n" +
       "`/ticketconfig` `/ticketpanel`\n\n" +
       "**📝 Notes & Logs**\n" +
-      "`/note` `/notes` `/setlogs` `/setwelcome`\n\n" +
+      "`/note` `/notes` `/logs` `/setwelcome`\n\n" +
       "**🛡️ Protection**\n" +
       "`/antiraid` `/captcha` `/antilink` `/antispam`\n" +
       "`/antilink-ignore` `/antilink-sanction` `/antilink-type`\n" +
@@ -1180,19 +1180,104 @@ async function handleRemoveFromTicket(interaction: any, supabase: any) {
   return publicMsg(`✅ <@${memberId}> a été retiré du ticket.`);
 }
 
-// Set logs channel
-async function handleSetLogs(interaction: any, supabase: any) {
+// Create logs category + channels
+async function handleLogs(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
-  const channelId = getOption(interaction.data.options, 'salon') as string;
+  const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+  const DISCORD_API = 'https://discord.com/api/v10';
 
+  // Check if already configured
+  const { data: existing } = await supabase
+    .from('guild_config')
+    .select('logs_category_id')
+    .eq('guild_id', guildId)
+    .single();
+
+  if (existing?.logs_category_id) {
+    return ephemeral('⚠️ Les logs sont déjà configurés sur ce serveur. Supprimez la catégorie manuellement pour reconfigurer.');
+  }
+
+  // Get guild name for category
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+  const serverName = guild.name?.toUpperCase() || 'SERVER';
+
+  // Create category
+  const catRes = await discordFetch(`/guilds/${guildId}/channels`, {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `${serverName} - logs`,
+      type: 4, // GUILD_CATEGORY
+      permission_overwrites: [
+        {
+          id: guildId, // @everyone role
+          type: 0,
+          deny: '1024' // VIEW_CHANNEL denied for everyone
+        }
+      ]
+    })
+  });
+
+  if (!catRes.ok) {
+    return ephemeral('❌ Impossible de créer la catégorie. Vérifie que le bot a la permission "Gérer les salons".');
+  }
+
+  const category = await catRes.json();
+  const categoryId = category.id;
+
+  // Channels to create
+  const logChannels = [
+    { name: 'raid-logs', key: 'raid_logs_channel_id' },
+    { name: 'mod-logs', key: 'mod_logs_channel_id' },
+    { name: 'msg-logs', key: 'msg_logs_channel_id' },
+    { name: 'rôle-logs', key: 'role_logs_channel_id' },
+    { name: 'voice-logs', key: 'voice_logs_channel_id' },
+    { name: 'boost-logs', key: 'boost_logs_channel_id' },
+  ];
+
+  const channelIds: Record<string, string> = {};
+
+  for (const ch of logChannels) {
+    const chRes = await discordFetch(`/guilds/${guildId}/channels`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: ch.name,
+        type: 0, // GUILD_TEXT
+        parent_id: categoryId,
+      })
+    });
+
+    if (chRes.ok) {
+      const created = await chRes.json();
+      channelIds[ch.key] = created.id;
+    }
+  }
+
+  // Save to database
   await supabase.from('guild_config').upsert({
     id: guildId,
     guild_id: guildId,
-    logs_channel_id: channelId,
+    logs_category_id: categoryId,
+    logs_channel_id: channelIds.mod_logs_channel_id || null,
+    raid_logs_channel_id: channelIds.raid_logs_channel_id || null,
+    mod_logs_channel_id: channelIds.mod_logs_channel_id || null,
+    msg_logs_channel_id: channelIds.msg_logs_channel_id || null,
+    role_logs_channel_id: channelIds.role_logs_channel_id || null,
+    voice_logs_channel_id: channelIds.voice_logs_channel_id || null,
+    boost_logs_channel_id: channelIds.boost_logs_channel_id || null,
     updated_at: new Date().toISOString()
   }, { onConflict: 'guild_id' });
 
-  return publicMsg(`✅ Salon des logs défini sur <#${channelId}>.`);
+  const channelList = logChannels
+    .map(ch => channelIds[ch.key] ? `✅ <#${channelIds[ch.key]}>` : `❌ ${ch.name}`)
+    .join('\n');
+
+  return publicMsg('', [{
+    title: '📋 Logs configurés !',
+    description: `La catégorie **${serverName} - logs** a été créée avec les salons suivants :\n\n${channelList}`,
+    color: 0x22C55E,
+    footer: { text: 'Les logs seront envoyés automatiquement dans ces salons.' }
+  }]);
 }
 
 // Set welcome channel
@@ -3506,7 +3591,7 @@ CONTEXTE:
 - User ID: ${userId}
 - Est créateur: ${isAdmin}
 
-COMMANDES DISPONIBLES DU BOT: help, say, stats, ban, unban, kick, mute, unmute, clear, lock, unlock, addrole, delrole, sanctions, banlist, mutelist, warn, sanctions-clear, massiverole, unmassiverole, renew, embed, serverinfo, userinfo, roleinfo, bringall, slowmode, temprole, note, notes, announce, ticket, close, add, remove, ticketconfig, setlogs, setwelcome, antiraid, captcha, antilink, antilink-ignore, antilink-sanction, antilink-type, antispam, antispam-config, showpic, piconly, piconly-remove, piconly-list, counter, counter-list, counter-remove, setowner, delowner, listowners, buyer, unbuyer, listbuyers, support, unsupport, listsupports, nolog, disable, enable, listdisabled, config, hidereply, license, redeem, createlicense, listlicenses, revoke, listallowners, listallbuyers, buy, setpaypal, payment, banip, unbanip, listbannedips, settoken, removetoken, ia, stats-perma`
+COMMANDES DISPONIBLES DU BOT: help, say, stats, ban, unban, kick, mute, unmute, clear, lock, unlock, addrole, delrole, sanctions, banlist, mutelist, warn, sanctions-clear, massiverole, unmassiverole, renew, embed, serverinfo, userinfo, roleinfo, bringall, slowmode, temprole, note, notes, announce, ticket, close, add, remove, ticketconfig, logs, setwelcome, antiraid, captcha, antilink, antilink-ignore, antilink-sanction, antilink-type, antispam, antispam-config, showpic, piconly, piconly-remove, piconly-list, counter, counter-list, counter-remove, setowner, delowner, listowners, buyer, unbuyer, listbuyers, support, unsupport, listsupports, nolog, disable, enable, listdisabled, config, hidereply, license, redeem, createlicense, listlicenses, revoke, listallowners, listallbuyers, buy, setpaypal, payment, banip, unbanip, listbannedips, settoken, removetoken, ia, stats-perma`
           },
           { role: 'user', content: originalQuestion }
         ],
@@ -3924,7 +4009,7 @@ serve(async (req) => {
         case 'ticketconfig': return handleTicketConfig(interaction, supabase);
 
         // Configuration commands
-        case 'setlogs': return handleSetLogs(interaction, supabase);
+        case 'logs': return handleLogs(interaction, supabase);
         case 'setwelcome': return handleSetWelcome(interaction, supabase);
         case 'antiraid': return handleAntiraid(interaction, supabase);
         case 'captcha': return handleCaptcha(interaction, supabase);
