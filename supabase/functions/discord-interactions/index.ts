@@ -4026,6 +4026,136 @@ COMMANDES DISPONIBLES DU BOT: help, say, stats, ban, unban, kick, mute, unmute, 
   }
 }
 
+// ========== DMALL COMMAND ==========
+async function handleDmall(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  const userId = interaction.member?.user?.id;
+  const message = getOption(interaction.data.options, 'message') as string;
+
+  if (!message) {
+    return ephemeral('❌ Veuillez fournir un message.');
+  }
+
+  // Only server owner or créateurs can use this
+  const guildRes = await discordFetch(`/guilds/${guildId}`);
+  const guild = await guildRes.json();
+  
+  if (guild.owner_id !== userId && !isCreateur(userId)) {
+    return ephemeral('❌ Seul le propriétaire du serveur ou un créateur peut utiliser cette commande.');
+  }
+
+  // Respond immediately with deferred message
+  // We'll use a follow-up approach: respond first, then process in background
+  const appId = Deno.env.get('DISCORD_APPLICATION_ID');
+
+  // Send initial response
+  const initialResponse = new Response(JSON.stringify({
+    type: INTERACTION_RESPONSE_TYPE.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { flags: 64 }
+  }), { headers: { 'Content-Type': 'application/json' } });
+
+  // Process DMs in background
+  const token = interaction.token;
+  
+  (async () => {
+    try {
+      // Fetch all members (paginated)
+      let allMembers: any[] = [];
+      let after = '0';
+      let hasMore = true;
+
+      while (hasMore) {
+        const membersRes = await discordFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+        const members = await membersRes.json();
+        
+        if (!Array.isArray(members) || members.length === 0) {
+          hasMore = false;
+        } else {
+          allMembers = allMembers.concat(members);
+          after = members[members.length - 1].user.id;
+          if (members.length < 1000) hasMore = false;
+        }
+      }
+
+      // Filter out bots
+      const humans = allMembers.filter((m: any) => !m.user?.bot);
+
+      let sent = 0;
+      let failed = 0;
+
+      for (const member of humans) {
+        try {
+          // Create DM channel
+          const dmRes = await discordFetch('/users/@me/channels', {
+            method: 'POST',
+            body: JSON.stringify({ recipient_id: member.user.id })
+          });
+          const dm = await dmRes.json();
+
+          if (dm.id) {
+            // Send message with full markdown support
+            const sendRes = await discordFetch(`/channels/${dm.id}/messages`, {
+              method: 'POST',
+              body: JSON.stringify({
+                content: message,
+                allowed_mentions: { parse: [] }
+              })
+            });
+
+            if (sendRes.ok) {
+              sent++;
+            } else {
+              failed++;
+            }
+          } else {
+            failed++;
+          }
+
+          // Rate limit: wait 1s between DMs
+          await new Promise(r => setTimeout(r, 1000));
+        } catch {
+          failed++;
+        }
+      }
+
+      // Edit the deferred response with results
+      await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          embeds: [{
+            title: '📩 DM All - Terminé',
+            description: `Le message a été envoyé en MP à tous les membres.`,
+            color: 0x22C55E,
+            fields: [
+              { name: '✅ Envoyés', value: `${sent}`, inline: true },
+              { name: '❌ Échoués', value: `${failed}`, inline: true },
+              { name: '👥 Total membres', value: `${humans.length}`, inline: true },
+              { name: '📝 Message', value: message.length > 1000 ? message.substring(0, 1000) + '...' : message, inline: false }
+            ],
+            timestamp: new Date().toISOString()
+          }],
+          flags: 64
+        })
+      });
+    } catch (error) {
+      console.error('[DMALL] Error:', error);
+      await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `❌ Erreur lors de l'envoi des DMs: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+          flags: 64
+        })
+      });
+    }
+  })();
+
+  return initialResponse;
+}
+
 serve(async (req) => {
   const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
   
@@ -4194,6 +4324,9 @@ serve(async (req) => {
 
         // AI command
         case 'ia': return await handleIA(interaction, supabase);
+
+        // DM All command
+        case 'dmall': return handleDmall(interaction, supabase);
 
         case 'counter': return handleCounter(interaction, supabase);
         case 'hidereply': return handleHidereply(interaction, supabase);
