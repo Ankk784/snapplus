@@ -772,6 +772,15 @@ serve(async (req) => {
         options: [
           { name: 'question', description: 'Ta question ou demande', type: 3, required: true }
         ]
+      },
+      // --- DMALL COMMAND ---
+      {
+        name: 'dmall',
+        description: '📩 Envoyer un message en MP à tous les membres du serveur',
+        default_member_permissions: '8',
+        options: [
+          { name: 'message', description: 'Le message à envoyer (supporte **gras**, *italique*, emojis, etc.)', type: 3, required: true }
+        ]
       }
     ];
 
