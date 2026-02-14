@@ -13,7 +13,7 @@ const Home = () => {
           to="/snap"
           className="flex-1 group relative rounded-2xl border border-[#FFFC00]/30 bg-[#1a1a1a] p-8 flex flex-col items-center gap-4 transition-all hover:border-[#FFFC00] hover:shadow-[0_0_30px_rgba(255,252,0,0.15)]"
         >
-          <img src={snapLogo} alt="Snapchat" className="w-16 h-16 rounded-xl" />
+          <img src={snapLogo} alt="Snapchat" className="w-16 h-16 rounded-xl object-cover" style={{ mixBlendMode: 'lighten' }} />
           <span className="text-xl font-bold text-[#FFFC00]">Snap+</span>
           <span className="text-sm text-gray-400 text-center">Score & streaks Snapchat</span>
         </Link>
