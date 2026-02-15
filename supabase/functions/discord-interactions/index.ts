@@ -4058,6 +4058,45 @@ async function handleDmall(interaction: any, supabase: any) {
   // Process DMs in background
   const token = interaction.token;
   
+  // Helper to update the deferred message
+  const updateProgress = async (embeds: any[]) => {
+    await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds, flags: 64 })
+    });
+  };
+
+  // Helper for rate-limit-aware Discord fetch
+  const rateLimitedFetch = async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
+    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+    let res = await fetch(`${DISCORD_API}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    });
+
+    // Handle rate limits with retry
+    if (res.status === 429) {
+      const body = await res.json();
+      const retryAfter = (body.retry_after || 1) * 1000;
+      console.log(`[DMALL] Rate limited, waiting ${retryAfter}ms`);
+      await new Promise(r => setTimeout(r, retryAfter + 100));
+      res = await fetch(`${DISCORD_API}${endpoint}`, {
+        ...options,
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
+    }
+    return res;
+  };
+
   const bgTask = (async () => {
     try {
       // Fetch all members (paginated)
@@ -4068,13 +4107,18 @@ async function handleDmall(interaction: any, supabase: any) {
       console.log('[DMALL] Starting member fetch for guild:', guildId);
 
       while (hasMore) {
-        const membersRes = await discordFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+        const membersRes = await rateLimitedFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
         
         if (!membersRes.ok) {
           const errText = await membersRes.text();
           console.error('[DMALL] Failed to fetch members:', membersRes.status, errText);
-          hasMore = false;
-          break;
+          await updateProgress([{
+            title: '❌ DM All - Erreur',
+            description: `Impossible de récupérer les membres du serveur.\nErreur: ${membersRes.status}\nAssure-toi que l'intent **Server Members** est activé dans le Developer Portal.`,
+            color: 0xEF4444,
+            timestamp: new Date().toISOString()
+          }]);
+          return;
         }
 
         const members = await membersRes.json();
@@ -4093,21 +4137,46 @@ async function handleDmall(interaction: any, supabase: any) {
       const humans = allMembers.filter((m: any) => !m.user?.bot);
       console.log('[DMALL] Total humans:', humans.length);
 
+      if (humans.length === 0) {
+        await updateProgress([{
+          title: '❌ DM All - Aucun membre',
+          description: `Aucun membre humain trouvé. Vérifie que l'intent **Server Members** est activé.`,
+          color: 0xEF4444,
+          timestamp: new Date().toISOString()
+        }]);
+        return;
+      }
+
       let sent = 0;
       let failed = 0;
+      const total = humans.length;
+      const progressInterval = Math.max(1, Math.floor(total / 10)); // Update every ~10%
 
-      for (const member of humans) {
+      // Show initial progress
+      await updateProgress([{
+        title: '📩 DM All - En cours...',
+        description: `Envoi en cours à **${total}** membres...`,
+        color: 0xF59E0B,
+        fields: [
+          { name: '📊 Progression', value: `0/${total} (0%)`, inline: true },
+          { name: '✅ Envoyés', value: '0', inline: true },
+          { name: '❌ Échoués', value: '0', inline: true },
+        ],
+        timestamp: new Date().toISOString()
+      }]);
+
+      for (let i = 0; i < humans.length; i++) {
+        const member = humans[i];
         try {
           // Create DM channel
-          const dmRes = await discordFetch('/users/@me/channels', {
+          const dmRes = await rateLimitedFetch('/users/@me/channels', {
             method: 'POST',
             body: JSON.stringify({ recipient_id: member.user.id })
           });
           const dm = await dmRes.json();
 
           if (dm.id) {
-            // Send message with full markdown support
-            const sendRes = await discordFetch(`/channels/${dm.id}/messages`, {
+            const sendRes = await rateLimitedFetch(`/channels/${dm.id}/messages`, {
               method: 'POST',
               body: JSON.stringify({
                 content: message,
@@ -4118,52 +4187,59 @@ async function handleDmall(interaction: any, supabase: any) {
             if (sendRes.ok) {
               sent++;
             } else {
+              const errBody = await sendRes.text();
+              console.log(`[DMALL] Failed to DM ${member.user.id}: ${sendRes.status} ${errBody}`);
               failed++;
             }
           } else {
             failed++;
           }
 
-          // Rate limit: wait 1s between DMs
-          await new Promise(r => setTimeout(r, 1000));
+          // Rate limit: wait 1.5s between DMs to be safe
+          await new Promise(r => setTimeout(r, 1500));
         } catch {
           failed++;
         }
-      }
 
-      // Edit the deferred response with results
-      await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          embeds: [{
-            title: '📩 DM All - Terminé',
-            description: `Le message a été envoyé en MP à tous les membres.`,
-            color: 0x22C55E,
+        // Update progress periodically
+        if ((i + 1) % progressInterval === 0 || i === humans.length - 1) {
+          const pct = Math.round(((i + 1) / total) * 100);
+          await updateProgress([{
+            title: '📩 DM All - En cours...',
+            description: `Envoi en cours à **${total}** membres...`,
+            color: 0xF59E0B,
             fields: [
+              { name: '📊 Progression', value: `${i + 1}/${total} (${pct}%)`, inline: true },
               { name: '✅ Envoyés', value: `${sent}`, inline: true },
               { name: '❌ Échoués', value: `${failed}`, inline: true },
-              { name: '👥 Total membres', value: `${humans.length}`, inline: true },
-              { name: '📝 Message', value: message.length > 1000 ? message.substring(0, 1000) + '...' : message, inline: false }
             ],
             timestamp: new Date().toISOString()
-          }],
-          flags: 64
-        })
-      });
+          }]);
+        }
+      }
+
+      // Final result
+      await updateProgress([{
+        title: '📩 DM All - Terminé',
+        description: `Le message a été envoyé en MP à tous les membres.`,
+        color: 0x22C55E,
+        fields: [
+          { name: '✅ Envoyés', value: `${sent}`, inline: true },
+          { name: '❌ Échoués', value: `${failed}`, inline: true },
+          { name: '👥 Total membres', value: `${total}`, inline: true },
+          { name: '📝 Message', value: message.length > 1000 ? message.substring(0, 1000) + '...' : message, inline: false }
+        ],
+        timestamp: new Date().toISOString()
+      }]);
       console.log('[DMALL] Completed. Sent:', sent, 'Failed:', failed);
     } catch (error) {
       console.error('[DMALL] Error:', error);
-      await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `❌ Erreur lors de l'envoi des DMs: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-          flags: 64
-        })
-      });
+      await updateProgress([{
+        title: '❌ DM All - Erreur',
+        description: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        color: 0xEF4444,
+        timestamp: new Date().toISOString()
+      }]);
     }
   })();
 
