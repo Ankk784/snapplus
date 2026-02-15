@@ -4057,16 +4057,27 @@ async function handleDmall(interaction: any, supabase: any) {
   // Process DMs in background
   const token = interaction.token;
   
-  (async () => {
+  const bgTask = (async () => {
     try {
       // Fetch all members (paginated)
       let allMembers: any[] = [];
       let after = '0';
       let hasMore = true;
 
+      console.log('[DMALL] Starting member fetch for guild:', guildId);
+
       while (hasMore) {
         const membersRes = await discordFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+        
+        if (!membersRes.ok) {
+          const errText = await membersRes.text();
+          console.error('[DMALL] Failed to fetch members:', membersRes.status, errText);
+          hasMore = false;
+          break;
+        }
+
         const members = await membersRes.json();
+        console.log('[DMALL] Fetched batch:', members.length, 'members');
         
         if (!Array.isArray(members) || members.length === 0) {
           hasMore = false;
@@ -4079,6 +4090,7 @@ async function handleDmall(interaction: any, supabase: any) {
 
       // Filter out bots
       const humans = allMembers.filter((m: any) => !m.user?.bot);
+      console.log('[DMALL] Total humans:', humans.length);
 
       let sent = 0;
       let failed = 0;
@@ -4140,6 +4152,7 @@ async function handleDmall(interaction: any, supabase: any) {
           flags: 64
         })
       });
+      console.log('[DMALL] Completed. Sent:', sent, 'Failed:', failed);
     } catch (error) {
       console.error('[DMALL] Error:', error);
       await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
@@ -4152,6 +4165,13 @@ async function handleDmall(interaction: any, supabase: any) {
       });
     }
   })();
+
+  // Keep the edge function alive until background task completes
+  // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(bgTask);
+  }
 
   return initialResponse;
 }
