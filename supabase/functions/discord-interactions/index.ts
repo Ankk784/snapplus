@@ -4099,38 +4099,85 @@ async function handleDmall(interaction: any, supabase: any) {
 
   const bgTask = (async () => {
     try {
-      // Fetch all members (paginated)
+      // First check bot can access the guild
+      const guildCheck = await rateLimitedFetch(`/guilds/${guildId}`);
+      if (!guildCheck.ok) {
+        const errText = await guildCheck.text();
+        console.error('[DMALL] Bot cannot access guild:', guildCheck.status, errText);
+        await updateProgress([{
+          title: '❌ DM All - Erreur',
+          description: `Le bot n'a pas accès au serveur.\nErreur: ${guildCheck.status}`,
+          color: 0xEF4444,
+          timestamp: new Date().toISOString()
+        }]);
+        return;
+      }
+      const guildInfo = await guildCheck.json();
+      console.log('[DMALL] Bot has access to guild:', guildInfo.name, '| Member count:', guildInfo.approximate_member_count);
+
+      // Try fetching members - Method 1: List Guild Members (requires GUILD_MEMBERS intent)
       let allMembers: any[] = [];
       let after = '0';
       let hasMore = true;
+      let useSearchFallback = false;
 
       console.log('[DMALL] Starting member fetch for guild:', guildId);
 
-      while (hasMore) {
-        const membersRes = await rateLimitedFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
-        
-        if (!membersRes.ok) {
-          const errText = await membersRes.text();
-          console.error('[DMALL] Failed to fetch members:', membersRes.status, errText);
-          await updateProgress([{
-            title: '❌ DM All - Erreur',
-            description: `Impossible de récupérer les membres du serveur.\nErreur: ${membersRes.status}\nAssure-toi que l'intent **Server Members** est activé dans le Developer Portal.`,
-            color: 0xEF4444,
-            timestamp: new Date().toISOString()
-          }]);
-          return;
+      const firstTry = await rateLimitedFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+      
+      if (!firstTry.ok) {
+        const errText = await firstTry.text();
+        console.error('[DMALL] List members failed:', firstTry.status, errText);
+        console.log('[DMALL] Trying search fallback...');
+        useSearchFallback = true;
+      } else {
+        const firstBatch = await firstTry.json();
+        if (Array.isArray(firstBatch) && firstBatch.length > 0) {
+          allMembers = firstBatch;
+          after = firstBatch[firstBatch.length - 1].user.id;
+          if (firstBatch.length < 1000) hasMore = false;
+        } else {
+          hasMore = false;
         }
 
-        const members = await membersRes.json();
-        console.log('[DMALL] Fetched batch:', members.length, 'members');
-        
-        if (!Array.isArray(members) || members.length === 0) {
-          hasMore = false;
-        } else {
-          allMembers = allMembers.concat(members);
-          after = members[members.length - 1].user.id;
-          if (members.length < 1000) hasMore = false;
+        while (hasMore) {
+          const membersRes = await rateLimitedFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+          if (!membersRes.ok) { hasMore = false; break; }
+          const members = await membersRes.json();
+          if (!Array.isArray(members) || members.length === 0) { hasMore = false; }
+          else {
+            allMembers = allMembers.concat(members);
+            after = members[members.length - 1].user.id;
+            if (members.length < 1000) hasMore = false;
+          }
         }
+      }
+
+      // Fallback: use search endpoint with common characters to get members
+      if (useSearchFallback) {
+        console.log('[DMALL] Using search fallback to find members');
+        const searchChars = 'abcdefghijklmnopqrstuvwxyz0123456789_'.split('');
+        const seenIds = new Set<string>();
+        
+        for (const char of searchChars) {
+          try {
+            const searchRes = await rateLimitedFetch(`/guilds/${guildId}/members/search?query=${encodeURIComponent(char)}&limit=1000`);
+            if (searchRes.ok) {
+              const results = await searchRes.json();
+              if (Array.isArray(results)) {
+                for (const m of results) {
+                  if (m.user?.id && !seenIds.has(m.user.id)) {
+                    seenIds.add(m.user.id);
+                    allMembers.push(m);
+                  }
+                }
+              }
+            }
+            // Small delay between searches
+            await new Promise(r => setTimeout(r, 300));
+          } catch { /* continue */ }
+        }
+        console.log('[DMALL] Search fallback found', allMembers.length, 'unique members');
       }
 
       // Filter out bots
