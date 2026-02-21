@@ -657,45 +657,93 @@ async function handleSanctionsClear(interaction: any, supabase: any) {
   return publicMsg(`✅ Toutes les sanctions de <@${targetId}> ont été supprimées.`);
 }
 
-// Handle help command
+// Help categories data
+const HELP_CATEGORIES: Record<string, { emoji: string; label: string; commands: string }> = {
+  moderation: {
+    emoji: '🛡️',
+    label: 'Modération',
+    commands: '`/ban <membre> [raison]` — Bannir un membre\n`/unban <user_id>` — Débannir un utilisateur\n`/kick <membre> [raison]` — Expulser un membre\n`/mute <membre> <durée> [raison]` — Mute un membre\n`/unmute <membre>` — Unmute un membre\n`/warn <membre> [raison]` — Avertir un membre\n`/clear <nombre> [membre]` — Supprimer des messages\n`/lock [salon]` — Verrouiller un salon\n`/unlock [salon]` — Déverrouiller un salon\n`/addrole <membre> <role>` — Ajouter un rôle\n`/delrole <membre> <role>` — Retirer un rôle\n`/sanctions <membre>` — Voir les sanctions\n`/sanctions-clear <membre>` — Effacer les sanctions\n`/banlist` — Liste des bannis\n`/mutelist` — Liste des mutes'
+  },
+  gestion: {
+    emoji: '⚙️',
+    label: 'Gestion du serveur',
+    commands: '`/massiverole <role>` — Donner un rôle à tous\n`/unmassiverole <role>` — Retirer un rôle à tous\n`/renew [salon]` — Cloner et supprimer un salon\n`/embed <json>` — Envoyer un embed personnalisé\n`/bringall` — Déplacer tout le monde dans votre vocal\n`/serverinfo` — Infos du serveur\n`/userinfo [membre]` — Infos d\'un membre\n`/roleinfo <role>` — Infos d\'un rôle\n`/slowmode <durée> [salon]` — Mode lent\n`/temprole <membre> <role> <durée>` — Rôle temporaire\n`/announce <salon> <message>` — Faire une annonce\n`/rolemenu <titre> <roles>` — Menu de rôles'
+  },
+  tickets: {
+    emoji: '🎫',
+    label: 'Tickets',
+    commands: '`/ticket [sujet]` — Ouvrir un ticket\n`/close` — Fermer un ticket\n`/add <membre>` — Ajouter au ticket\n`/remove <membre>` — Retirer du ticket\n`/rename <nom>` — Renommer le ticket\n`/ticketconfig <catégorie> <rôle>` — Configurer les tickets\n`/ticketpanel [titre]` — Créer un panel de tickets'
+  },
+  notes: {
+    emoji: '📝',
+    label: 'Notes & Logs',
+    commands: '`/note <membre> <texte>` — Ajouter une note\n`/notes <membre>` — Voir les notes\n`/logs <type> <salon>` — Configurer les logs\n`/setwelcome <message> [salon]` — Message de bienvenue'
+  },
+  protection: {
+    emoji: '🔰',
+    label: 'Protection',
+    commands: '`/antiraid [on/off]` — Activer/désactiver l\'antiraid\n`/captcha [on/off]` — Activer/désactiver le captcha\n`/antilink [on/off]` — Activer/désactiver l\'antilink\n`/antispam [on/off]` — Activer/désactiver l\'antispam\n`/antilink-ignore <salon>` — Ignorer un salon pour l\'antilink\n`/antilink-sanction <type>` — Sanction antilink\n`/antilink-type <type>` — Type d\'antilink\n`/antispam-config` — Configurer l\'antispam\n`/settings` — Voir la configuration'
+  },
+  configuration: {
+    emoji: '🔧',
+    label: 'Configuration',
+    commands: '`/counter <type> <salon>` — Compteur de membres\n`/hidereply [on/off]` — Masquer les réponses\n`/showpic [on/off]` — Salon showpic\n`/soutien <role>` — Rôle de soutien\n`/soutien-nolog <role>` — Soutien sans logs\n`/piconly <salon>` — Salon images uniquement'
+  },
+  owner: {
+    emoji: '👑',
+    label: 'Propriétaire',
+    commands: '`/buyer <membre>` — Ajouter un buyer\n`/unbuyer <membre>` — Retirer un buyer\n`/change <ancien> <nouveau>` — Transférer les données\n`/listoff` — Liste des owners\n`/setowner <membre>` — Ajouter un owner\n`/delowner <membre>` — Retirer un owner'
+  },
+  utilitaires: {
+    emoji: '⚡',
+    label: 'Utilitaires',
+    commands: '`/say <message>` — Faire parler le bot\n`/stats` — Statistiques du bot\n`/help` — Afficher l\'aide\n`/avatar [membre]` — Avatar d\'un membre\n`/banner [membre]` — Bannière d\'un membre\n`/ping` — Latence du bot\n`/dmall <message>` — DM tous les membres'
+  },
+  createur: {
+    emoji: '🔒',
+    label: 'Créateur',
+    commands: '`/listallowners` — Tous les owners (global)\n`/listallbuyers` — Tous les buyers (global)\n`/listlicenses` — Toutes les licences\n`/revoke <guild_id>` — Révoquer une licence\n`/createlicense [type] [durée]` — Créer une licence'
+  }
+};
+
+// Handle help command - sends a dropdown select menu
 function handleHelp(interaction: any) {
+  const username = interaction.member?.user?.username || 'Utilisateur';
+  
   const embed = {
-    title: "📖 Liste des commandes",
-    description: "Les paramètres entre `<>` sont obligatoires, ceux entre `[]` sont facultatifs.\n\n" +
-      "**🛡️ Modération**\n" +
-      "`/ban` `/unban` `/kick` `/mute` `/unmute` `/warn`\n" +
-      "`/clear` `/lock` `/unlock` `/addrole` `/delrole`\n" +
-      "`/sanctions` `/sanctions-clear` `/banlist` `/mutelist`\n\n" +
-      "**⚙️ Gestion du serveur**\n" +
-      "`/massiverole` `/unmassiverole` `/renew` `/embed`\n" +
-      "`/bringall` `/serverinfo` `/userinfo` `/roleinfo`\n" +
-      "`/slowmode` `/temprole` `/announce` `/rolemenu`\n\n" +
-      "**🎫 Tickets**\n" +
-      "`/ticket` `/close` `/add` `/remove` `/rename`\n" +
-      "`/ticketconfig` `/ticketpanel`\n\n" +
-      "**📝 Notes & Logs**\n" +
-      "`/note` `/notes` `/logs` `/setwelcome`\n\n" +
-      "**🛡️ Protection**\n" +
-      "`/antiraid` `/captcha` `/antilink` `/antispam`\n" +
-      "`/antilink-ignore` `/antilink-sanction` `/antilink-type`\n" +
-      "`/antispam-config` `/settings`\n\n" +
-      "**⚙️ Configuration**\n" +
-      "`/counter` `/hidereply` `/showpic`\n" +
-      "`/soutien` `/soutien-nolog` `/piconly`\n\n" +
-      "**👑 Propriétaire**\n" +
-      "`/buyer` `/unbuyer` `/change` `/listoff`\n" +
-      "`/setowner` `/delowner`\n\n" +
-      "**🔧 Utilitaires**\n" +
-      "`/say` `/stats` `/help` `/avatar` `/banner` `/ping`\n\n" +
-      "**🔒 Créateur**\n" +
-      "`/listallowners` `/listallbuyers` `/listlicenses`\n" +
-      "`/revoke` `/createlicense`",
+    title: '📖 Protect Bot — Aide',
+    description: 'Les paramètres entre `<>` sont obligatoires, ceux entre `[]` sont facultatifs.\n\n**Sélectionnez une catégorie ci-dessous** pour voir les commandes disponibles.',
     color: 0x2B2D31,
-    footer: { text: `Demandé par ${interaction.member?.user?.username || 'Utilisateur'}` },
+    fields: Object.entries(HELP_CATEGORIES).map(([, cat]) => ({
+      name: `${cat.emoji} ${cat.label}`,
+      value: '\u200B',
+      inline: true
+    })),
+    footer: { text: `Demandé par ${username}` },
     timestamp: new Date().toISOString()
   };
 
-  return publicMsg('', [embed]);
+  const components = [{
+    type: 1,
+    components: [{
+      type: 3, // String Select
+      custom_id: 'help_category',
+      placeholder: '📂 Sélectionnez une catégorie',
+      min_values: 1,
+      max_values: 1,
+      options: Object.entries(HELP_CATEGORIES).map(([key, cat]) => ({
+        label: cat.label,
+        value: key,
+        description: `Voir les commandes ${cat.label.toLowerCase()}`,
+        emoji: { name: cat.emoji }
+      }))
+    }]
+  }];
+
+  return new Response(JSON.stringify({
+    type: INTERACTION_RESPONSE_TYPE.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { embeds: [embed], components }
+  }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 // Server Gestion handlers
@@ -4491,9 +4539,54 @@ serve(async (req) => {
     }
   }
 
-  // Handle button interactions
+  // Handle component interactions (buttons, select menus)
   if (interaction.type === INTERACTION_TYPE.MESSAGE_COMPONENT) {
     const customId = interaction.data.custom_id;
+
+    // Handle help category select menu
+    if (customId === 'help_category') {
+      const selectedCategory = interaction.data.values?.[0];
+      const cat = HELP_CATEGORIES[selectedCategory];
+      
+      if (!cat) {
+        return ephemeral('❌ Catégorie inconnue.');
+      }
+
+      const username = interaction.member?.user?.username || interaction.user?.username || 'Utilisateur';
+
+      const embed = {
+        title: `${cat.emoji} ${cat.label}`,
+        description: cat.commands,
+        color: 0x2B2D31,
+        footer: { text: `Demandé par ${username} • Protect Bot` },
+        timestamp: new Date().toISOString()
+      };
+
+      // Rebuild the select menu so the user can pick another category
+      const components = [{
+        type: 1,
+        components: [{
+          type: 3,
+          custom_id: 'help_category',
+          placeholder: '📂 Sélectionnez une catégorie',
+          min_values: 1,
+          max_values: 1,
+          options: Object.entries(HELP_CATEGORIES).map(([key, c]) => ({
+            label: c.label,
+            value: key,
+            description: `Voir les commandes ${c.label.toLowerCase()}`,
+            emoji: { name: c.emoji },
+            default: key === selectedCategory
+          }))
+        }]
+      }];
+
+      return new Response(JSON.stringify({
+        type: INTERACTION_RESPONSE_TYPE.UPDATE_MESSAGE,
+        data: { embeds: [embed], components }
+      }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     const [action, submissionId] = customId.split('_');
 
     const { data: submission } = await supabase
