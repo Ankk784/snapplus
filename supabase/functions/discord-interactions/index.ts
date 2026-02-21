@@ -146,21 +146,35 @@ async function sendLog(guildId: string, supabase: any, logType: 'mod' | 'raid' |
       boost: 'boost_logs_channel_id',
     };
 
-    const { data: config } = await supabase
+    const { data: config, error } = await supabase
       .from('guild_config')
       .select(columnMap[logType])
       .eq('guild_id', guildId)
       .single();
 
-    const channelId = config?.[columnMap[logType]];
-    if (!channelId) return; // No log channel configured
+    if (error) {
+      console.error(`[LOG] Failed to fetch config for guild ${guildId}:`, error.message);
+      return;
+    }
 
-    await discordFetch(`/channels/${channelId}/messages`, {
+    const channelId = config?.[columnMap[logType]];
+    if (!channelId) {
+      console.log(`[LOG] No ${logType} log channel configured for guild ${guildId}`);
+      return;
+    }
+
+    console.log(`[LOG] Sending ${logType} log to channel ${channelId}`);
+    const res = await discordFetch(`/channels/${channelId}/messages`, {
       method: 'POST',
       body: JSON.stringify({ embeds: [embed] })
     });
+    
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[LOG] Failed to send ${logType} log (${res.status}):`, errText);
+    }
   } catch (e) {
-    console.error('Failed to send log:', e);
+    console.error('[LOG] Failed to send log:', e);
   }
 }
 
@@ -206,7 +220,7 @@ async function handleBan(interaction: any, supabase: any) {
   });
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🔨 Bannissement',
     description: `<@${modId}> a banni <@${targetId}> (${targetUser.username || targetId})`,
     color: 0xEF4444,
@@ -264,7 +278,7 @@ async function handleKick(interaction: any, supabase: any) {
   });
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '👢 Expulsion',
     description: `<@${modId}> a expulsé <@${targetId}> (${targetUser.username || targetId})`,
     color: 0xF97316,
@@ -318,7 +332,7 @@ async function handleMute(interaction: any, supabase: any) {
   });
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🔇 Mute',
     description: `<@${modId}> a mute <@${targetId}> (${targetUser.username || targetId}) pour ${formatDuration(durationMs)}`,
     color: 0xF59E0B,
@@ -351,7 +365,7 @@ async function handleUnmute(interaction: any, supabase: any) {
   }
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🔊 Unmute',
     description: `<@${modId}> a unmute <@${targetId}>`,
     color: 0x22C55E,
@@ -396,7 +410,7 @@ async function handleClear(interaction: any, supabase: any) {
   }
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🗑️ Clear',
     description: `<@${modId}> a clear dans le salon <#${channelId}> : ${toDelete.length} messages`,
     color: 0x3B82F6,
@@ -422,7 +436,7 @@ async function handleLock(interaction: any, supabase: any) {
   }
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🔒 Verrouillage',
     description: `<@${modId}> a verrouillé le salon <#${channelId}>`,
     color: 0xEF4444,
@@ -447,7 +461,7 @@ async function handleUnlock(interaction: any, supabase: any) {
   }
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '🔓 Déverrouillage',
     description: `<@${modId}> a déverrouillé le salon <#${channelId}>`,
     color: 0x22C55E,
@@ -476,7 +490,7 @@ async function handleAddRole(interaction: any, supabase: any) {
   const memberName = member.user?.username || memberId;
 
   // Send log
-  sendLog(guildId, supabase, 'role', logEmbed({
+  await sendLog(guildId, supabase, 'role', logEmbed({
     title: memberName,
     description: `<@${modId}> a ajouté le rôle <@&${roleId}> à ${memberName}`,
     color: 0x22C55E,
@@ -505,7 +519,7 @@ async function handleDelRole(interaction: any, supabase: any) {
   const memberName = member.user?.username || memberId;
 
   // Send log
-  sendLog(guildId, supabase, 'role', logEmbed({
+  await sendLog(guildId, supabase, 'role', logEmbed({
     title: memberName,
     description: `<@${modId}> a retiré le rôle <@&${roleId}> à ${memberName}`,
     color: 0xEF4444,
@@ -618,7 +632,7 @@ async function handleWarn(interaction: any, supabase: any) {
     .eq('type', 'warn');
 
   // Send log
-  sendLog(guildId, supabase, 'mod', logEmbed({
+  await sendLog(guildId, supabase, 'mod', logEmbed({
     title: '⚠️ Avertissement',
     description: `<@${modId}> a averti <@${targetId}> (${targetUser.username || targetId})`,
     color: 0xF59E0B,
@@ -1413,7 +1427,7 @@ async function handleLogs(interaction: any, supabase: any) {
     { name: 'raid-logs', key: 'raid_logs_channel_id' },
     { name: 'mod-logs', key: 'mod_logs_channel_id' },
     { name: 'msg-logs', key: 'msg_logs_channel_id' },
-    { name: 'rôle-logs', key: 'role_logs_channel_id' },
+    { name: 'role-logs', key: 'role_logs_channel_id' },
     { name: 'voice-logs', key: 'voice_logs_channel_id' },
     { name: 'boost-logs', key: 'boost_logs_channel_id' },
   ];
