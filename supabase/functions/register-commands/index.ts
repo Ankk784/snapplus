@@ -545,10 +545,10 @@ serve(async (req) => {
       },
       {
         name: 'setpaypal',
-        description: 'Configurer les infos PayPal pour /buy (Créateur)',
+        description: 'Configurer le lien PayPal (Créateur)',
         default_member_permissions: '8',
         options: [
-          { name: 'email', description: 'Email PayPal', type: 3, required: true },
+          { name: 'lien', description: 'Lien PayPal (ex: https://paypal.me/...)', type: 3, required: true },
           { name: 'price_standard', description: 'Prix plan Standard (ex: 5€)', type: 3, required: false },
           { name: 'price_premium', description: 'Prix plan Premium (ex: 12€)', type: 3, required: false },
           { name: 'price_lifetime', description: 'Prix plan Lifetime (ex: 25€)', type: 3, required: false }
@@ -564,10 +564,10 @@ serve(async (req) => {
       },
       {
         name: 'setpaypal2',
-        description: 'Configurer les infos PayPal secondaires (Créateur)',
+        description: 'Configurer le lien PayPal secondaire (Créateur)',
         default_member_permissions: '8',
         options: [
-          { name: 'email', description: 'Email PayPal', type: 3, required: true },
+          { name: 'lien', description: 'Lien PayPal (ex: https://paypal.me/...)', type: 3, required: true },
           { name: 'price_standard', description: 'Prix plan Standard (ex: 5€)', type: 3, required: false },
           { name: 'price_premium', description: 'Prix plan Premium (ex: 12€)', type: 3, required: false },
           { name: 'price_lifetime', description: 'Prix plan Lifetime (ex: 25€)', type: 3, required: false }
