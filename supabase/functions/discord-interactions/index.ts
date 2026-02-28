@@ -2221,13 +2221,13 @@ async function handleSetPaypal(interaction: any, supabase: any) {
     return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
-  const email = getOption(interaction.data.options, 'email') as string;
+  const lien = getOption(interaction.data.options, 'lien') as string;
   const priceStandard = getOption(interaction.data.options, 'price_standard') as string | undefined;
   const pricePremium = getOption(interaction.data.options, 'price_premium') as string | undefined;
   const priceLifetime = getOption(interaction.data.options, 'price_lifetime') as string | undefined;
 
   const updateData: any = { 
-    paypal_email: email,
+    paypal_email: lien,
     updated_at: new Date().toISOString()
   };
   if (priceStandard) updateData.price_standard = priceStandard;
@@ -2247,7 +2247,7 @@ async function handleSetPaypal(interaction: any, supabase: any) {
     title: '✅ Configuration PayPal mise à jour',
     color: 0x22C55E,
     fields: [
-      { name: '📧 Email', value: email, inline: true },
+      { name: '🔗 Lien', value: lien, inline: true },
       ...(priceStandard ? [{ name: '📦 Standard', value: priceStandard, inline: true }] : []),
       ...(pricePremium ? [{ name: '⭐ Premium', value: pricePremium, inline: true }] : []),
       ...(priceLifetime ? [{ name: '💎 Lifetime', value: priceLifetime, inline: true }] : [])
@@ -2299,12 +2299,12 @@ async function handleSetPaypal2(interaction: any, supabase: any) {
     return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
   }
 
-  const email = getOption(interaction.data.options, 'email') as string;
+  const lien = getOption(interaction.data.options, 'lien') as string;
   const priceStandard = getOption(interaction.data.options, 'price_standard') as string | undefined;
   const pricePremium = getOption(interaction.data.options, 'price_premium') as string | undefined;
   const priceLifetime = getOption(interaction.data.options, 'price_lifetime') as string | undefined;
 
-  const updateData: any = { paypal_email: email, updated_at: new Date().toISOString() };
+  const updateData: any = { paypal_email: lien, updated_at: new Date().toISOString() };
   if (priceStandard) updateData.price_standard = priceStandard;
   if (pricePremium) updateData.price_premium = pricePremium;
   if (priceLifetime) updateData.price_lifetime = priceLifetime;
@@ -2322,7 +2322,7 @@ async function handleSetPaypal2(interaction: any, supabase: any) {
     title: '✅ Configuration PayPal 2 mise à jour',
     color: 0x22C55E,
     fields: [
-      { name: '📧 Email', value: email, inline: true },
+      { name: '🔗 Lien', value: lien, inline: true },
       ...(priceStandard ? [{ name: '📦 Standard', value: priceStandard, inline: true }] : []),
       ...(pricePremium ? [{ name: '⭐ Premium', value: pricePremium, inline: true }] : []),
       ...(priceLifetime ? [{ name: '💎 Lifetime', value: priceLifetime, inline: true }] : [])
@@ -2373,7 +2373,7 @@ async function handlePayment2(interaction: any, supabase: any) {
     .eq('id', 'secondary')
     .single();
 
-  const paypalEmail = config?.paypal_email || 'Non configuré';
+  const paypalLink = config?.paypal_email || null;
   const litecoinAddress = config?.ltc_address || 'Non configuré';
 
   return publicMsg('', [{
@@ -2381,7 +2381,7 @@ async function handlePayment2(interaction: any, supabase: any) {
     description: 'Méthodes de paiement secondaires.',
     color: 0x8B5CF6,
     fields: [
-      { name: '💰 PayPal', value: `\`\`\`${paypalEmail}\`\`\``, inline: false },
+      { name: '💰 PayPal', value: paypalLink ? `[Cliquez ici pour payer](${paypalLink})` : 'Non configuré', inline: false },
       { name: '🪙 Litecoin (LTC)', value: `\`\`\`${litecoinAddress}\`\`\``, inline: false },
       { name: '📋 Instructions', value: '1. Effectuez le paiement via PayPal ou Litecoin\n2. Envoyez une preuve de paiement\n3. Recevez votre licence instantanément', inline: false }
     ],
@@ -3605,7 +3605,7 @@ async function handlePayment(interaction: any, supabase: any) {
     .eq('id', 'main')
     .single();
 
-  const paypalEmail = config?.paypal_email || 'Non configuré';
+  const paypalLink = config?.paypal_email || null;
   const litecoinAddress = config?.ltc_address || 'Non configuré';
 
   return publicMsg('', [{
@@ -3615,7 +3615,7 @@ async function handlePayment(interaction: any, supabase: any) {
     fields: [
       {
         name: '💰 PayPal',
-        value: `\`\`\`${paypalEmail}\`\`\``,
+        value: paypalLink ? `[Cliquez ici pour payer](${paypalLink})` : 'Non configuré',
         inline: false
       },
       {
