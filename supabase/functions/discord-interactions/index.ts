@@ -144,11 +144,13 @@ async function sendLog(guildId: string, supabase: any, logType: 'mod' | 'raid' |
       role: 'role_logs_channel_id',
       voice: 'voice_logs_channel_id',
       boost: 'boost_logs_channel_id',
-    };
+    } as const;
+
+    const targetColumn = columnMap[logType];
 
     const { data: config, error } = await supabase
       .from('guild_config')
-      .select(columnMap[logType])
+      .select(`${targetColumn},logs_channel_id`)
       .eq('guild_id', guildId)
       .single();
 
@@ -157,22 +159,33 @@ async function sendLog(guildId: string, supabase: any, logType: 'mod' | 'raid' |
       return;
     }
 
-    const channelId = config?.[columnMap[logType]];
-    if (!channelId) {
-      console.log(`[LOG] No ${logType} log channel configured for guild ${guildId}`);
+    const postToChannel = async (channelId: string) => {
+      const res = await discordFetch(`/channels/${channelId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ embeds: [embed] })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[LOG] Failed to send ${logType} log to ${channelId} (${res.status}):`, errText);
+        return false;
+      }
+
+      return true;
+    };
+
+    const primaryChannelId = config?.[targetColumn] as string | null;
+    if (primaryChannelId && await postToChannel(primaryChannelId)) {
       return;
     }
 
-    console.log(`[LOG] Sending ${logType} log to channel ${channelId}`);
-    const res = await discordFetch(`/channels/${channelId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ embeds: [embed] })
-    });
-    
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[LOG] Failed to send ${logType} log (${res.status}):`, errText);
+    const fallbackChannelId = config?.logs_channel_id as string | null;
+    if (fallbackChannelId && fallbackChannelId !== primaryChannelId) {
+      await postToChannel(fallbackChannelId);
+      return;
     }
+
+    console.log(`[LOG] No valid channel available for ${logType} in guild ${guildId}`);
   } catch (e) {
     console.error('[LOG] Failed to send log:', e);
   }
@@ -1390,24 +1403,42 @@ async function handleLogs(interaction: any, supabase: any) {
     { order: 6, name: 'boost-logs', key: 'boost_logs_channel_id', label: 'Boost' },
   ] as const;
 
+  const LOG_ALLOW = String(1024 + 2048 + 16384 + 65536); // view + send + embed + history
+
   const { data: existing } = await supabase
     .from('guild_config')
     .select('logs_category_id, raid_logs_channel_id, mod_logs_channel_id, msg_logs_channel_id, role_logs_channel_id, voice_logs_channel_id, boost_logs_channel_id')
     .eq('guild_id', guildId)
     .single();
 
-  // Get guild name for category
   const guildRes = await discordFetch(`/guilds/${guildId}`);
   if (!guildRes.ok) {
-    return ephemeral('❌ Impossible de récupérer le serveur. Vérifie que le bot est bien présent sur ce serveur.');
+    return ephemeral('❌ Impossible de récupérer le serveur.');
   }
 
   const guild = await guildRes.json();
   const serverName = guild.name?.toUpperCase() || 'SERVER';
 
+  const meRes = await discordFetch('/users/@me');
+  const me = meRes.ok ? await meRes.json() : null;
+  const botUserId = me?.id as string | undefined;
+
+  const ensureLogPermissions = async (channelId: string) => {
+    await discordFetch(`/channels/${channelId}/permissions/${guildId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ type: 0, allow: '0', deny: '1024' })
+    });
+
+    if (botUserId) {
+      await discordFetch(`/channels/${channelId}/permissions/${botUserId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ type: 1, allow: LOG_ALLOW, deny: '0' })
+      });
+    }
+  };
+
   let categoryId = existing?.logs_category_id as string | null;
 
-  // If category id exists, verify it's still valid
   if (categoryId) {
     const catCheck = await discordFetch(`/channels/${categoryId}`);
     if (!catCheck.ok) {
@@ -1415,21 +1446,10 @@ async function handleLogs(interaction: any, supabase: any) {
     }
   }
 
-  // Create category if missing
   if (!categoryId) {
     const catRes = await discordFetch(`/guilds/${guildId}/channels`, {
       method: 'POST',
-      body: JSON.stringify({
-        name: `${serverName} - logs`,
-        type: 4,
-        permission_overwrites: [
-          {
-            id: guildId,
-            type: 0,
-            deny: '1024'
-          }
-        ]
-      })
+      body: JSON.stringify({ name: `${serverName} - logs`, type: 4 })
     });
 
     if (!catRes.ok) {
@@ -1442,19 +1462,19 @@ async function handleLogs(interaction: any, supabase: any) {
     categoryId = category.id;
   }
 
+  await ensureLogPermissions(categoryId);
+
   const channelIds: Record<string, string> = {};
 
   for (const ch of logChannels) {
     let channelId = (existing?.[ch.key] as string | null) || null;
 
-    // Check if saved channel still exists
     if (channelId) {
       const channelCheck = await discordFetch(`/channels/${channelId}`);
       if (!channelCheck.ok) {
         channelId = null;
       } else {
         const channelData = await channelCheck.json();
-        // Keep channels grouped under the logs category
         if (channelData.parent_id !== categoryId) {
           await discordFetch(`/channels/${channelId}`, {
             method: 'PATCH',
@@ -1464,7 +1484,6 @@ async function handleLogs(interaction: any, supabase: any) {
       }
     }
 
-    // Create missing channel
     if (!channelId) {
       const chRes = await discordFetch(`/guilds/${guildId}/channels`, {
         method: 'POST',
@@ -1485,11 +1504,11 @@ async function handleLogs(interaction: any, supabase: any) {
     }
 
     if (channelId) {
+      await ensureLogPermissions(channelId);
       channelIds[ch.key] = channelId;
     }
   }
 
-  // Save/repair config in database
   await supabase.from('guild_config').upsert({
     id: guildId,
     guild_id: guildId,
@@ -1512,7 +1531,7 @@ async function handleLogs(interaction: any, supabase: any) {
     title: '📋 Logs configurés / réparés',
     description: `Catégorie: **${serverName} - logs**\n\n${channelList}`,
     color: 0x22C55E,
-    footer: { text: 'Ordre demandé appliqué: 1 Raid, 2 Mod, 3 Msg, 4 Role, 5 Vocaux, 6 Boost.' }
+    footer: { text: 'Ordre: 1 Raid • 2 Mod • 3 Msg • 4 Role • 5 Vocaux • 6 Boost' }
   }]);
 }
 
