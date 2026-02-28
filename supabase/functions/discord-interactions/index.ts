@@ -1377,80 +1377,119 @@ async function handleRemoveFromTicket(interaction: any, supabase: any) {
   return publicMsg(`✅ <@${memberId}> a été retiré du ticket.`);
 }
 
-// Create logs category + channels
+// Create or repair logs category + channels
 async function handleLogs(interaction: any, supabase: any) {
   const guildId = interaction.guild_id;
-  const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
-  const DISCORD_API = 'https://discord.com/api/v10';
 
-  // Check if already configured
+  const logChannels = [
+    { order: 1, name: 'raid-logs', key: 'raid_logs_channel_id', label: 'Raid' },
+    { order: 2, name: 'mod-logs', key: 'mod_logs_channel_id', label: 'Mod' },
+    { order: 3, name: 'msg-logs', key: 'msg_logs_channel_id', label: 'Msg' },
+    { order: 4, name: 'role-logs', key: 'role_logs_channel_id', label: 'Role' },
+    { order: 5, name: 'voice-logs', key: 'voice_logs_channel_id', label: 'Vocaux' },
+    { order: 6, name: 'boost-logs', key: 'boost_logs_channel_id', label: 'Boost' },
+  ] as const;
+
   const { data: existing } = await supabase
     .from('guild_config')
-    .select('logs_category_id')
+    .select('logs_category_id, raid_logs_channel_id, mod_logs_channel_id, msg_logs_channel_id, role_logs_channel_id, voice_logs_channel_id, boost_logs_channel_id')
     .eq('guild_id', guildId)
     .single();
 
-  if (existing?.logs_category_id) {
-    return ephemeral('⚠️ Les logs sont déjà configurés sur ce serveur. Supprimez la catégorie manuellement pour reconfigurer.');
-  }
-
   // Get guild name for category
   const guildRes = await discordFetch(`/guilds/${guildId}`);
+  if (!guildRes.ok) {
+    return ephemeral('❌ Impossible de récupérer le serveur. Vérifie que le bot est bien présent sur ce serveur.');
+  }
+
   const guild = await guildRes.json();
   const serverName = guild.name?.toUpperCase() || 'SERVER';
 
-  // Create category
-  const catRes = await discordFetch(`/guilds/${guildId}/channels`, {
-    method: 'POST',
-    body: JSON.stringify({
-      name: `${serverName} - logs`,
-      type: 4, // GUILD_CATEGORY
-      permission_overwrites: [
-        {
-          id: guildId, // @everyone role
-          type: 0,
-          deny: '1024' // VIEW_CHANNEL denied for everyone
-        }
-      ]
-    })
-  });
+  let categoryId = existing?.logs_category_id as string | null;
 
-  if (!catRes.ok) {
-    return ephemeral('❌ Impossible de créer la catégorie. Vérifie que le bot a la permission "Gérer les salons".');
+  // If category id exists, verify it's still valid
+  if (categoryId) {
+    const catCheck = await discordFetch(`/channels/${categoryId}`);
+    if (!catCheck.ok) {
+      categoryId = null;
+    }
   }
 
-  const category = await catRes.json();
-  const categoryId = category.id;
+  // Create category if missing
+  if (!categoryId) {
+    const catRes = await discordFetch(`/guilds/${guildId}/channels`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `${serverName} - logs`,
+        type: 4,
+        permission_overwrites: [
+          {
+            id: guildId,
+            type: 0,
+            deny: '1024'
+          }
+        ]
+      })
+    });
 
-  // Channels to create
-  const logChannels = [
-    { name: 'raid-logs', key: 'raid_logs_channel_id' },
-    { name: 'mod-logs', key: 'mod_logs_channel_id' },
-    { name: 'msg-logs', key: 'msg_logs_channel_id' },
-    { name: 'role-logs', key: 'role_logs_channel_id' },
-    { name: 'voice-logs', key: 'voice_logs_channel_id' },
-    { name: 'boost-logs', key: 'boost_logs_channel_id' },
-  ];
+    if (!catRes.ok) {
+      const errText = await catRes.text();
+      console.error('[LOGS] Failed to create category:', errText);
+      return ephemeral('❌ Impossible de créer la catégorie logs. Vérifie la permission **Gérer les salons**.');
+    }
+
+    const category = await catRes.json();
+    categoryId = category.id;
+  }
 
   const channelIds: Record<string, string> = {};
 
   for (const ch of logChannels) {
-    const chRes = await discordFetch(`/guilds/${guildId}/channels`, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: ch.name,
-        type: 0, // GUILD_TEXT
-        parent_id: categoryId,
-      })
-    });
+    let channelId = (existing?.[ch.key] as string | null) || null;
 
-    if (chRes.ok) {
-      const created = await chRes.json();
-      channelIds[ch.key] = created.id;
+    // Check if saved channel still exists
+    if (channelId) {
+      const channelCheck = await discordFetch(`/channels/${channelId}`);
+      if (!channelCheck.ok) {
+        channelId = null;
+      } else {
+        const channelData = await channelCheck.json();
+        // Keep channels grouped under the logs category
+        if (channelData.parent_id !== categoryId) {
+          await discordFetch(`/channels/${channelId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ parent_id: categoryId })
+          });
+        }
+      }
+    }
+
+    // Create missing channel
+    if (!channelId) {
+      const chRes = await discordFetch(`/guilds/${guildId}/channels`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: ch.name,
+          type: 0,
+          parent_id: categoryId,
+        })
+      });
+
+      if (chRes.ok) {
+        const created = await chRes.json();
+        channelId = created.id;
+      } else {
+        const errText = await chRes.text();
+        console.error(`[LOGS] Failed to create ${ch.name}:`, errText);
+      }
+    }
+
+    if (channelId) {
+      channelIds[ch.key] = channelId;
     }
   }
 
-  // Save to database
+  // Save/repair config in database
   await supabase.from('guild_config').upsert({
     id: guildId,
     guild_id: guildId,
@@ -1466,14 +1505,14 @@ async function handleLogs(interaction: any, supabase: any) {
   }, { onConflict: 'guild_id' });
 
   const channelList = logChannels
-    .map(ch => channelIds[ch.key] ? `✅ <#${channelIds[ch.key]}>` : `❌ ${ch.name}`)
+    .map(ch => channelIds[ch.key] ? `**${ch.order}. ${ch.label}** → ✅ <#${channelIds[ch.key]}>` : `**${ch.order}. ${ch.label}** → ❌ Non créé`)
     .join('\n');
 
   return publicMsg('', [{
-    title: '📋 Logs configurés !',
-    description: `La catégorie **${serverName} - logs** a été créée avec les salons suivants :\n\n${channelList}`,
+    title: '📋 Logs configurés / réparés',
+    description: `Catégorie: **${serverName} - logs**\n\n${channelList}`,
     color: 0x22C55E,
-    footer: { text: 'Les logs seront envoyés automatiquement dans ces salons.' }
+    footer: { text: 'Ordre demandé appliqué: 1 Raid, 2 Mod, 3 Msg, 4 Role, 5 Vocaux, 6 Boost.' }
   }]);
 }
 
