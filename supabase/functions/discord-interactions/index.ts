@@ -2292,6 +2292,104 @@ async function handleSetLtc(interaction: any, supabase: any) {
   }]);
 }
 
+// Set PayPal config 2 (CRÉATEUR ONLY) - secondary payment
+async function handleSetPaypal2(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const email = getOption(interaction.data.options, 'email') as string;
+  const priceStandard = getOption(interaction.data.options, 'price_standard') as string | undefined;
+  const pricePremium = getOption(interaction.data.options, 'price_premium') as string | undefined;
+  const priceLifetime = getOption(interaction.data.options, 'price_lifetime') as string | undefined;
+
+  const updateData: any = { paypal_email: email, updated_at: new Date().toISOString() };
+  if (priceStandard) updateData.price_standard = priceStandard;
+  if (pricePremium) updateData.price_premium = pricePremium;
+  if (priceLifetime) updateData.price_lifetime = priceLifetime;
+
+  const { error } = await supabase
+    .from('payment_config')
+    .upsert({ id: 'secondary', ...updateData });
+
+  if (error) {
+    console.error('SetPaypal2 error:', error);
+    return ephemeral('❌ Erreur lors de la configuration.');
+  }
+
+  return ephemeral('', [{
+    title: '✅ Configuration PayPal 2 mise à jour',
+    color: 0x22C55E,
+    fields: [
+      { name: '📧 Email', value: email, inline: true },
+      ...(priceStandard ? [{ name: '📦 Standard', value: priceStandard, inline: true }] : []),
+      ...(pricePremium ? [{ name: '⭐ Premium', value: pricePremium, inline: true }] : []),
+      ...(priceLifetime ? [{ name: '💎 Lifetime', value: priceLifetime, inline: true }] : [])
+    ]
+  }]);
+}
+
+// Set Litecoin address 2 (CRÉATEUR ONLY) - secondary payment
+async function handleSetLtc2(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+
+  const address = getOption(interaction.data.options, 'address') as string;
+  if (!address || address.length < 20) {
+    return ephemeral('❌ Adresse Litecoin invalide.');
+  }
+
+  const { error } = await supabase
+    .from('payment_config')
+    .upsert({ id: 'secondary', ltc_address: address, updated_at: new Date().toISOString() });
+
+  if (error) {
+    console.error('SetLtc2 error:', error);
+    return ephemeral('❌ Erreur lors de la configuration.');
+  }
+
+  return ephemeral('', [{
+    title: '✅ Adresse Litecoin 2 configurée',
+    color: 0x22C55E,
+    fields: [
+      { name: '💰 Adresse LTC', value: `\`${address}\``, inline: false }
+    ]
+  }]);
+}
+
+// Payment info 2 command (Créateur only) - secondary payment
+async function handlePayment2(interaction: any, supabase: any) {
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(userId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs.`);
+  }
+
+  const { data: config } = await supabase
+    .from('payment_config')
+    .select('*')
+    .eq('id', 'secondary')
+    .single();
+
+  const paypalEmail = config?.paypal_email || 'Non configuré';
+  const litecoinAddress = config?.ltc_address || 'Non configuré';
+
+  return publicMsg('', [{
+    title: '💳 Informations de Paiement 2',
+    description: 'Méthodes de paiement secondaires.',
+    color: 0x8B5CF6,
+    fields: [
+      { name: '💰 PayPal', value: `\`\`\`${paypalEmail}\`\`\``, inline: false },
+      { name: '🪙 Litecoin (LTC)', value: `\`\`\`${litecoinAddress}\`\`\``, inline: false },
+      { name: '📋 Instructions', value: '1. Effectuez le paiement via PayPal ou Litecoin\n2. Envoyez une preuve de paiement\n3. Recevez votre licence instantanément', inline: false }
+    ],
+    footer: { text: 'Protect Bot - Paiements sécurisés' },
+    timestamp: new Date().toISOString()
+  }]);
+}
+
 // ===== OWNER/BUYER COMMANDS =====
 
 // Buyer command - list or add buyers
@@ -4560,6 +4658,8 @@ serve(async (req) => {
         case 'redeem': return handleRedeem(interaction, supabase);
         case 'setpaypal': return handleSetPaypal(interaction, supabase);
         case 'setltc': return handleSetLtc(interaction, supabase);
+        case 'setpaypal2': return handleSetPaypal2(interaction, supabase);
+        case 'setltc2': return handleSetLtc2(interaction, supabase);
 
         // Owner/Buyer commands
         case 'buyer': return handleBuyer(interaction, supabase);
@@ -4585,6 +4685,7 @@ serve(async (req) => {
 
         // Payment info command
         case 'payment': return handlePayment(interaction, supabase);
+        case 'payment2': return handlePayment2(interaction, supabase);
 
         // AI command
         case 'ia': return await handleIA(interaction, supabase);

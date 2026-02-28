@@ -562,6 +562,25 @@ serve(async (req) => {
           { name: 'address', description: 'Adresse Litecoin', type: 3, required: true }
         ]
       },
+      {
+        name: 'setpaypal2',
+        description: 'Configurer les infos PayPal secondaires (Créateur)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'email', description: 'Email PayPal', type: 3, required: true },
+          { name: 'price_standard', description: 'Prix plan Standard (ex: 5€)', type: 3, required: false },
+          { name: 'price_premium', description: 'Prix plan Premium (ex: 12€)', type: 3, required: false },
+          { name: 'price_lifetime', description: 'Prix plan Lifetime (ex: 25€)', type: 3, required: false }
+        ]
+      },
+      {
+        name: 'setltc2',
+        description: 'Configurer l\'adresse Litecoin secondaire (Créateur)',
+        default_member_permissions: '8',
+        options: [
+          { name: 'address', description: 'Adresse Litecoin', type: 3, required: true }
+        ]
+      },
       // --- CONFIGURATION AVANCÉE ---
       {
         name: 'counter',
@@ -763,6 +782,11 @@ serve(async (req) => {
       {
         name: 'payment',
         description: '💳 Affiche les informations de paiement (PayPal & Litecoin)',
+        dm_permission: true
+      },
+      {
+        name: 'payment2',
+        description: '💳 Affiche les informations de paiement secondaires',
         dm_permission: true
       },
       // --- AI COMMAND ---
