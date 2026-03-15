@@ -1242,19 +1242,94 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       case 'soutien': {
-        const action = interaction.options.getString('action', true);
-        const roleId = interaction.options.getRole('role')?.id;
-        if (action === 'list') {
-          const { data: roles } = await supabase.from('support_roles').select('*').eq('guild_id', guildId);
-          if (!roles?.length) { await interaction.reply({ content: '📋 Aucun rôle de soutien.', ephemeral: true }); break; }
-          await interaction.reply({ embeds: [{ title: '💪 Rôles de Soutien', description: roles.map((r: any) => `<@&${r.role_id}>`).join('\n'), color: 0x22C55E }], ephemeral: true });
-        } else if (action === 'add' && roleId) {
-          await supabase.from('support_roles').insert({ guild_id: guildId, role_id: roleId });
-          await interaction.reply(`✅ <@&${roleId}> ajouté.`);
-        } else if (action === 'remove' && roleId) {
-          await supabase.from('support_roles').delete().eq('guild_id', guildId).eq('role_id', roleId);
-          await interaction.reply(`✅ <@&${roleId}> retiré.`);
+        const soutienAction = interaction.options.getSubcommand();
+
+        if (soutienAction === 'config') {
+          const role = interaction.options.getRole('role', true);
+          const urls: string[] = [];
+          for (let i = 1; i <= 5; i++) {
+            const url = interaction.options.getString(`url${i}`);
+            if (url) urls.push(url.trim());
+          }
+
+          await supabase.from('soutien_config').upsert({
+            guild_id: guildId,
+            role_id: role.id,
+            urls,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'guild_id' });
+
+          const urlList = urls.map((u, i) => `\`${i + 1}.\` ${u}`).join('\n');
+          await interaction.reply({
+            embeds: [{
+              title: '✅ Configuration Soutien enregistrée',
+              color: 0x22C55E,
+              fields: [
+                { name: '🎭 Rôle', value: `<@&${role.id}>`, inline: true },
+                { name: '🔗 URLs à détecter', value: urlList || 'Aucune' },
+                { name: '💡 Info', value: 'Le bot vérifie les **statuts personnalisés** des membres. Ceux qui ont une URL dans leur statut recevront le rôle automatiquement.' }
+              ],
+              timestamp: new Date().toISOString()
+            }]
+          });
+
+          // Lancer une vérification immédiate
+          checkGuildSoutien(guildId!);
         }
+
+        else if (soutienAction === 'list') {
+          const { data: cfg } = await supabase.from('soutien_config').select('*').eq('guild_id', guildId).single();
+          if (!cfg) {
+            await interaction.reply({ content: '⚠️ Aucune configuration soutien. Utilise `/soutien config` pour configurer.', ephemeral: true });
+            break;
+          }
+          const urlList = (cfg.urls as string[]).map((u: string, i: number) => `\`${i + 1}.\` ${u}`).join('\n');
+          await interaction.reply({
+            embeds: [{
+              title: '📋 Configuration Soutien',
+              color: 0x3B82F6,
+              fields: [
+                { name: '🎭 Rôle', value: `<@&${cfg.role_id}>`, inline: true },
+                { name: '🔗 URLs configurées', value: urlList || 'Aucune' },
+              ],
+              timestamp: new Date().toISOString()
+            }],
+            ephemeral: true
+          });
+        }
+
+        else if (soutienAction === 'check') {
+          const { data: cfg } = await supabase.from('soutien_config').select('*').eq('guild_id', guildId).single();
+          if (!cfg) {
+            await interaction.reply({ content: '⚠️ Aucune configuration soutien.', ephemeral: true });
+            break;
+          }
+          await interaction.reply({
+            embeds: [{ description: '🔄 Vérification en cours...', color: 0x3B82F6 }]
+          });
+          const result = await checkGuildSoutien(guildId!);
+          await interaction.editReply({
+            embeds: [{
+              title: '✅ Vérification terminée',
+              description: `**+${result.added}** rôle(s) ajouté(s), **-${result.removed}** retiré(s).`,
+              color: 0x22C55E,
+              timestamp: new Date().toISOString()
+            }]
+          });
+        }
+
+        else if (soutienAction === 'reset') {
+          await supabase.from('soutien_config').delete().eq('guild_id', guildId);
+          await interaction.reply({
+            embeds: [{
+              title: '🗑️ Configuration supprimée',
+              description: 'La configuration soutien a été supprimée. Les rôles déjà attribués restent en place.',
+              color: 0xEF4444,
+              timestamp: new Date().toISOString()
+            }]
+          });
+        }
+
         break;
       }
 
