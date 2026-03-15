@@ -449,6 +449,33 @@ export type Database = {
         }
         Relationships: []
       }
+      soutien_config: {
+        Row: {
+          created_at: string
+          guild_id: string
+          id: string
+          role_id: string
+          updated_at: string
+          urls: string[]
+        }
+        Insert: {
+          created_at?: string
+          guild_id: string
+          id?: string
+          role_id: string
+          updated_at?: string
+          urls?: string[]
+        }
+        Update: {
+          created_at?: string
+          guild_id?: string
+          id?: string
+          role_id?: string
+          updated_at?: string
+          urls?: string[]
+        }
+        Relationships: []
+      }
       stats_config: {
         Row: {
           id: string

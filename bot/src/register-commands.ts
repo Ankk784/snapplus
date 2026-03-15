@@ -152,9 +152,29 @@ const commands = [
   new SlashCommandBuilder().setName('showpic').setDescription('📷 Showpic')
     .addStringOption(o => o.setName('etat').setDescription('on/off').setRequired(true).addChoices({ name: 'Activer', value: 'on' }, { name: 'Désactiver', value: 'off' }))
     .addChannelOption(o => o.setName('salon').setDescription('Salon')),
-  new SlashCommandBuilder().setName('soutien').setDescription('💪 Rôles de soutien')
-    .addStringOption(o => o.setName('action').setDescription('Action').setRequired(true).addChoices({ name: 'Liste', value: 'list' }, { name: 'Ajouter', value: 'add' }, { name: 'Retirer', value: 'remove' }))
-    .addRoleOption(o => o.setName('role').setDescription('Rôle')),
+  new SlashCommandBuilder().setName('soutien').setDescription('💪 Système de soutien par bio/statut')
+    .addSubcommand(sub =>
+      sub.setName('config')
+        .setDescription('📋 Configurer les URLs et le rôle soutien')
+        .addRoleOption(o => o.setName('role').setDescription('Rôle à donner aux soutiens').setRequired(true))
+        .addStringOption(o => o.setName('url1').setDescription('URL 1 à détecter dans le statut').setRequired(true))
+        .addStringOption(o => o.setName('url2').setDescription('URL 2 (optionnel)'))
+        .addStringOption(o => o.setName('url3').setDescription('URL 3 (optionnel)'))
+        .addStringOption(o => o.setName('url4').setDescription('URL 4 (optionnel)'))
+        .addStringOption(o => o.setName('url5').setDescription('URL 5 (optionnel)'))
+    )
+    .addSubcommand(sub =>
+      sub.setName('list')
+        .setDescription('📄 Voir la config actuelle')
+    )
+    .addSubcommand(sub =>
+      sub.setName('check')
+        .setDescription('🔄 Forcer une vérification maintenant')
+    )
+    .addSubcommand(sub =>
+      sub.setName('reset')
+        .setDescription('🗑️ Supprimer la configuration soutien')
+    ),
   new SlashCommandBuilder().setName('piconly').setDescription('📷 Salon photos uniquement')
     .addStringOption(o => o.setName('action').setDescription('Action').setRequired(true).addChoices({ name: 'Liste', value: 'list' }, { name: 'Ajouter', value: 'add' }, { name: 'Retirer', value: 'remove' }))
     .addChannelOption(o => o.setName('salon').setDescription('Salon')),
