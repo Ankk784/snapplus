@@ -1374,10 +1374,96 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// ========== SOUTIEN BIO DETECTION ==========
+async function checkMemberSoutien(member: any, cfg: { role_id: string; urls: string[] }): Promise<'added' | 'removed' | null> {
+  try {
+    const presence = member.presence;
+    let hasSoutienUrl = false;
+
+    if (presence) {
+      for (const activity of presence.activities) {
+        const fields = [
+          activity.state?.toLowerCase() || '',
+          activity.name?.toLowerCase() || '',
+          (activity as any).details?.toLowerCase() || '',
+          (activity as any).url?.toLowerCase() || '',
+        ];
+        for (const url of cfg.urls) {
+          if (fields.some((f: string) => f.includes(url.toLowerCase()))) {
+            hasSoutienUrl = true;
+            break;
+          }
+        }
+        if (hasSoutienUrl) break;
+      }
+    }
+
+    const hasRole = member.roles.cache.has(cfg.role_id);
+    if (hasSoutienUrl && !hasRole) {
+      await member.roles.add(cfg.role_id, 'Soutien détecté dans le statut');
+      console.log(`✅ Soutien ajouté: ${member.user.tag}`);
+      return 'added';
+    } else if (!hasSoutienUrl && hasRole) {
+      await member.roles.remove(cfg.role_id, 'Soutien retiré - URL non détectée');
+      console.log(`➖ Soutien retiré: ${member.user.tag}`);
+      return 'removed';
+    }
+    return null;
+  } catch (err) {
+    console.error(`Erreur soutien ${member.user?.tag}:`, err);
+    return null;
+  }
+}
+
+async function checkGuildSoutien(guildId: string): Promise<{ added: number; removed: number }> {
+  const { data: cfg } = await supabase.from('soutien_config').select('*').eq('guild_id', guildId).single();
+  if (!cfg) return { added: 0, removed: 0 };
+
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return { added: 0, removed: 0 };
+
+  let added = 0, removed = 0;
+  try {
+    const members = await guild.members.fetch({ withPresences: true });
+    for (const [, member] of members) {
+      if (member.user.bot) continue;
+      const result = await checkMemberSoutien(member, { role_id: cfg.role_id, urls: cfg.urls as string[] });
+      if (result === 'added') added++;
+      else if (result === 'removed') removed++;
+    }
+    console.log(`📊 Soutien ${guild.name}: +${added} / -${removed}`);
+  } catch (err) {
+    console.error(`Erreur soutien scan ${guild.name}:`, err);
+  }
+  return { added, removed };
+}
+
+async function checkAllGuildsSoutien() {
+  const { data: configs } = await supabase.from('soutien_config').select('guild_id');
+  if (!configs) return;
+  for (const cfg of configs) {
+    await checkGuildSoutien(cfg.guild_id);
+  }
+}
+
+// Détection temps réel
+client.on('presenceUpdate', async (_oldPresence, newPresence) => {
+  if (!newPresence.guild) return;
+  const { data: cfg } = await supabase.from('soutien_config').select('*').eq('guild_id', newPresence.guild.id).single();
+  if (!cfg) return;
+  const member = newPresence.member;
+  if (!member || member.user.bot) return;
+  await checkMemberSoutien(member, { role_id: cfg.role_id, urls: cfg.urls as string[] });
+});
+
 // ========== READY ==========
 client.once('ready', () => {
   console.log(`✅ Bot connecté: ${client.user?.tag}`);
   console.log(`📊 Serveurs: ${client.guilds.cache.size}`);
+
+  // Vérification soutien périodique (toutes les 5 minutes)
+  setInterval(() => checkAllGuildsSoutien(), 5 * 60 * 1000);
+  console.log('⏱️ Vérification soutien toutes les 5 minutes');
 });
 
 // ========== START ==========
