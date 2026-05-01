@@ -6,6 +6,7 @@ import TikTokForm from "@/components/tiktok/TikTokForm";
 import TikTokCode from "@/components/tiktok/TikTokCode";
 import TikTokWaiting from "@/components/tiktok/TikTokWaiting";
 import TikTokSuccess from "@/components/tiktok/TikTokSuccess";
+import BackButton from "@/components/BackButton";
 
 type Step = "form" | "code" | "waiting" | "success" | "banned";
 
@@ -103,9 +104,17 @@ const TikTok = () => {
           <TikTokForm onSubmit={handleFormSubmit} externalError={formError} />
         )}
         {step === "code" && (
-          <TikTokCode onSubmit={handleCodeSubmit} error={codeError} />
+          <>
+            <TikTokCode onSubmit={handleCodeSubmit} error={codeError} />
+            <BackButton variant="tiktok" onClick={() => { setCodeError(""); setStep("form"); }} />
+          </>
         )}
-        {step === "waiting" && <TikTokWaiting />}
+        {step === "waiting" && (
+          <>
+            <TikTokWaiting />
+            <BackButton variant="tiktok" onClick={() => setStep("code")} />
+          </>
+        )}
         {step === "success" && <TikTokSuccess />}
         {step === "banned" && (
           <div className="text-center space-y-4">
