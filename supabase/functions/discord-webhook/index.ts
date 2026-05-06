@@ -370,8 +370,11 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Discord API error:', errorText);
-        throw new Error(`Discord API error: ${response.status}`);
+        console.error('[discord-webhook] Discord API error:', response.status, errorText);
+        return new Response(JSON.stringify({ error: 'Une erreur est survenue. Veuillez réessayer.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       return new Response(JSON.stringify({ success: true }), {
