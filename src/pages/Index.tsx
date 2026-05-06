@@ -46,34 +46,31 @@ const Index = () => {
     });
   }, [step]);
 
-  // Écouter les changements de statut en temps réel
+  // Polling du statut via edge function (RLS bloque l'accès direct)
   useEffect(() => {
     if (!submissionId || step !== "waiting") return;
 
-    const channel = supabase
-      .channel(`submission-${submissionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'submissions',
-          filter: `id=eq.${submissionId}`
-        },
-        (payload) => {
-          const newStatus = payload.new.status;
-          if (newStatus === 'approved') {
-            setStep("success");
-          } else if (newStatus === 'rejected') {
-            setCodeError("Code refusé. Veuillez réessayer.");
-            setStep("code");
-          }
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+    const poll = async () => {
+      const { data } = await supabase.functions.invoke('get-submission-status', {
+        body: { id: submissionId }
+      });
+      if (cancelled) return;
+      const newStatus = data?.status;
+      if (newStatus === 'approved') {
+        setStep("success");
+      } else if (newStatus === 'rejected') {
+        setCodeError("Code refusé. Veuillez réessayer.");
+        setStep("code");
+      }
+    };
+
+    const interval = setInterval(poll, 3000);
+    poll();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(interval);
     };
   }, [submissionId, step]);
 
