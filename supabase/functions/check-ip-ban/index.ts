@@ -36,8 +36,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error checking IP ban:', error);
-    return new Response(JSON.stringify({ banned: false, error: 'Check failed' }), {
+    console.error('[check-ip-ban] Error:', error);
+    return new Response(JSON.stringify({ banned: false }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

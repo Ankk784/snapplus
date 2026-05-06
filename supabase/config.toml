@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.check-ip-ban]
 verify_jwt = false
+
+[functions.get-submission-status]
+verify_jwt = false

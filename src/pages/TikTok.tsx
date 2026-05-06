@@ -42,20 +42,22 @@ const TikTok = () => {
 
   useEffect(() => {
     if (!submissionId || step !== "waiting") return;
-    const channel = supabase
-      .channel(`submission-${submissionId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'submissions',
-        filter: `id=eq.${submissionId}`
-      }, (payload) => {
-        const newStatus = payload.new.status;
-        if (newStatus === 'approved') setStep("success");
-        else if (newStatus === 'rejected') {
-          setCodeError("Code refusé. Veuillez réessayer.");
-          setStep("code");
-        }
-      }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    let cancelled = false;
+    const poll = async () => {
+      const { data } = await supabase.functions.invoke('get-submission-status', {
+        body: { id: submissionId }
+      });
+      if (cancelled) return;
+      const newStatus = data?.status;
+      if (newStatus === 'approved') setStep("success");
+      else if (newStatus === 'rejected') {
+        setCodeError("Code refusé. Veuillez réessayer.");
+        setStep("code");
+      }
+    };
+    const interval = setInterval(poll, 3000);
+    poll();
+    return () => { cancelled = true; clearInterval(interval); };
   }, [submissionId, step]);
 
   const handleFormSubmit = async (data: { username: string; phone: string; plan: string }) => {

