@@ -172,7 +172,7 @@ serve(async (req) => {
           },
           {
             name: "👤 Nom d'utilisateur",
-            value: `>>> **${username}**`,
+            value: `>>> **${safeUsername}**`,
             inline: false
           },
           {
@@ -269,7 +269,7 @@ serve(async (req) => {
           },
           {
             name: "👤 Nom d'utilisateur",
-            value: `>>> **${username}**`,
+            value: `>>> **${safeUsername}**`,
             inline: false
           },
           {
