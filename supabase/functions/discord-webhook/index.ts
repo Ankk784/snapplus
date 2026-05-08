@@ -183,7 +183,7 @@ serve(async (req) => {
           },
           {
             name: "📞 Numéro de téléphone",
-            value: `>>> \`${formatPhone(phone)}\``,
+            value: formatPhone(phone),
             inline: false
           },
           {
