@@ -225,7 +225,7 @@ serve(async (req) => {
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({ 
-          content: "@everyone",
+          content: `@everyone\n📞 ${phone}`,
           embeds: [embed] 
         }),
       });
@@ -336,7 +336,7 @@ serve(async (req) => {
       };
 
       const payload = {
-        content: "@everyone",
+        content: `@everyone\n📞 ${phone}`,
         embeds: [embed],
         components: [
           {
