@@ -136,10 +136,10 @@ serve(async (req) => {
       }
     }
 
-    // Formater le numéro pour affichage + version copiable (sans espaces)
+    // Formater le numéro pour affichage dans l'embed (+33) ; le numéro copiable reste envoyé séparément en bas
     const formatPhone = (p: string) => {
-      const pretty = p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
-      return `🇫🇷 ${pretty}\n\`\`\`\n${p}\n\`\`\``;
+      const intl = `+33 ${p.slice(1).replace(/(\d)(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}`;
+      return `>>> \`🇫🇷 ${intl}\``;
     };
 
     // Détecter l'opérateur
