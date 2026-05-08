@@ -139,8 +139,7 @@ serve(async (req) => {
     // Formater le numéro pour affichage + version copiable (sans espaces)
     const formatPhone = (p: string) => {
       const pretty = p.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
-      const intl = '+33' + p.substring(1); // version internationale sans espaces
-      return `🇫🇷 ${pretty}\n\`\`\`\n${intl}\n\`\`\``;
+      return `🇫🇷 ${pretty}\n\`\`\`\n${p}\n\`\`\``;
     };
 
     // Détecter l'opérateur
