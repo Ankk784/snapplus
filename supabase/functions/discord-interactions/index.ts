@@ -3024,8 +3024,8 @@ async function handleListLicenses(interaction: any, supabase: any) {
 async function handleBanIp(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const ip = getOption(interaction.data.options, 'ip') as string;
@@ -3073,8 +3073,8 @@ async function handleBanIp(interaction: any, supabase: any) {
 async function handleUnbanIp(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const ip = getOption(interaction.data.options, 'ip') as string;
@@ -3108,8 +3108,8 @@ async function handleUnbanIp(interaction: any, supabase: any) {
 async function handleListBannedIps(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const { data: bannedIps } = await supabase
