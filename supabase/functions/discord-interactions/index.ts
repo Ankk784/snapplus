@@ -3047,13 +3047,15 @@ async function handleBanIp(interaction: any, supabase: any) {
     return ephemeral(`❌ Erreur lors du ban de l'IP.`);
   }
 
-  return ephemeral('', [{
+  return publicMsg('', [{
     title: '🚫 IP Bannie',
     color: 0xEF4444,
     fields: [
       { name: '🌐 Adresse IP', value: `\`${ip}\``, inline: true },
-      { name: '📝 Raison', value: reason, inline: true }
-    ]
+      { name: '📝 Raison', value: reason, inline: true },
+      { name: '👮 Banni par', value: `<@${modId}>`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
   }]);
 }
 
@@ -3081,7 +3083,15 @@ async function handleUnbanIp(interaction: any, supabase: any) {
     return ephemeral(`❌ Erreur lors du déban de l'IP.`);
   }
 
-  return ephemeral(`✅ L'IP \`${ip}\` a été débannie.`);
+  return publicMsg('', [{
+    title: '✅ IP Débannie',
+    color: 0x22C55E,
+    fields: [
+      { name: '🌐 Adresse IP', value: `\`${ip}\``, inline: true },
+      { name: '👮 Débanni par', value: `<@${modId}>`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
+  }]);
 }
 
 // List banned IPs (créateur only)
