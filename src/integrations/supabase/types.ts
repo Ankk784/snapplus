@@ -449,6 +449,27 @@ export type Database = {
         }
         Relationships: []
       }
+      site_whitelist: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       soutien_config: {
         Row: {
           created_at: string
