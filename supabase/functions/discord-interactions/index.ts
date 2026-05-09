@@ -32,6 +32,16 @@ function isCreateur(userId: string): boolean {
   return CREATEURS.includes(userId);
 }
 
+async function isSiteWhitelisted(userId: string, supabase: any): Promise<boolean> {
+  if (isCreateur(userId)) return true;
+  const { data } = await supabase
+    .from('site_whitelist')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data;
+}
+
 function hexToUint8Array(hex: string): Uint8Array {
   const matches = hex.match(/.{1,2}/g);
   if (!matches) return new Uint8Array();
@@ -3014,8 +3024,8 @@ async function handleListLicenses(interaction: any, supabase: any) {
 async function handleBanIp(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const ip = getOption(interaction.data.options, 'ip') as string;
@@ -3063,8 +3073,8 @@ async function handleBanIp(interaction: any, supabase: any) {
 async function handleUnbanIp(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const ip = getOption(interaction.data.options, 'ip') as string;
@@ -3098,8 +3108,8 @@ async function handleUnbanIp(interaction: any, supabase: any) {
 async function handleListBannedIps(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   
-  if (!isCreateur(modId)) {
-    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
   }
 
   const { data: bannedIps } = await supabase
@@ -3125,7 +3135,87 @@ async function handleListBannedIps(interaction: any, supabase: any) {
   }]);
 }
 
-// Check if user is owner (server owner or added as bot owner)
+// Whitelist site (créateur only) - allows user to use /banip /unbanip
+async function handleWlSite(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+  const targetId = getOption(interaction.data.options, 'utilisateur') as string;
+  if (!targetId) return ephemeral(`❌ Utilisateur invalide.`);
+
+  const { error } = await supabase
+    .from('site_whitelist')
+    .insert({ user_id: targetId, added_by: modId });
+
+  if (error && !String(error.message || '').includes('duplicate')) {
+    console.error('wlsite error:', error);
+    return ephemeral(`❌ Erreur lors de l'ajout à la whitelist.`);
+  }
+  if (error) {
+    return ephemeral(`⚠️ <@${targetId}> est déjà dans la whitelist.`);
+  }
+
+  return publicMsg('', [{
+    title: '✅ Utilisateur whitelist',
+    description: `<@${targetId}> peut désormais utiliser \`/banip\`, \`/unbanip\` et \`/listbannedips\`.`,
+    color: 0x22C55E,
+    footer: { text: `Ajouté par ${interaction.member?.user?.username || 'Créateur'}` },
+    timestamp: new Date().toISOString()
+  }]);
+}
+
+async function handleUnwlSite(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+  const targetId = getOption(interaction.data.options, 'utilisateur') as string;
+  if (!targetId) return ephemeral(`❌ Utilisateur invalide.`);
+
+  const { error } = await supabase
+    .from('site_whitelist')
+    .delete()
+    .eq('user_id', targetId);
+
+  if (error) {
+    console.error('unwlsite error:', error);
+    return ephemeral(`❌ Erreur.`);
+  }
+  return publicMsg('', [{
+    title: '🗑️ Utilisateur retiré',
+    description: `<@${targetId}> n'a plus accès à \`/banip\` / \`/unbanip\`.`,
+    color: 0xEF4444,
+    timestamp: new Date().toISOString()
+  }]);
+}
+
+async function handleListWlSite(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!isCreateur(modId)) {
+    return ephemeral(`❌ Cette commande est réservée aux créateurs du bot.`);
+  }
+  const { data } = await supabase
+    .from('site_whitelist')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (!data || data.length === 0) {
+    return ephemeral(`📋 Aucun utilisateur whitelist.`);
+  }
+  const list = data.map((w: any, i: number) => {
+    const date = new Date(w.created_at).toLocaleDateString('fr-FR');
+    return `**${i + 1}.** <@${w.user_id}> — ajouté par <@${w.added_by}> (${date})`;
+  }).join('\n').slice(0, 4000);
+
+  return ephemeral('', [{
+    title: '🛡️ Whitelist site (banip/unbanip)',
+    description: list,
+    color: 0xFFD700,
+    footer: { text: `${data.length} utilisateur(s)` }
+  }]);
+}
 async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
   // Check if server owner
   const guildRes = await discordFetch(`/guilds/${guildId}`);
@@ -4561,7 +4651,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -4689,6 +4779,9 @@ serve(async (req) => {
         case 'banip': return handleBanIp(interaction, supabase);
         case 'unbanip': return handleUnbanIp(interaction, supabase);
         case 'listbannedips': return handleListBannedIps(interaction, supabase);
+        case 'wlsite': return handleWlSite(interaction, supabase);
+        case 'unwlsite': return handleUnwlSite(interaction, supabase);
+        case 'listwlsite': return handleListWlSite(interaction, supabase);
 
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);
