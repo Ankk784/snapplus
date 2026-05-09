@@ -3047,13 +3047,15 @@ async function handleBanIp(interaction: any, supabase: any) {
     return ephemeral(`❌ Erreur lors du ban de l'IP.`);
   }
 
-  return ephemeral('', [{
+  return publicMsg('', [{
     title: '🚫 IP Bannie',
     color: 0xEF4444,
     fields: [
       { name: '🌐 Adresse IP', value: `\`${ip}\``, inline: true },
-      { name: '📝 Raison', value: reason, inline: true }
-    ]
+      { name: '📝 Raison', value: reason, inline: true },
+      { name: '👮 Banni par', value: `<@${modId}>`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
   }]);
 }
 
@@ -3081,7 +3083,15 @@ async function handleUnbanIp(interaction: any, supabase: any) {
     return ephemeral(`❌ Erreur lors du déban de l'IP.`);
   }
 
-  return ephemeral(`✅ L'IP \`${ip}\` a été débannie.`);
+  return publicMsg('', [{
+    title: '✅ IP Débannie',
+    color: 0x22C55E,
+    fields: [
+      { name: '🌐 Adresse IP', value: `\`${ip}\``, inline: true },
+      { name: '👮 Débanni par', value: `<@${modId}>`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
+  }]);
 }
 
 // List banned IPs (créateur only)
@@ -4778,6 +4788,35 @@ serve(async (req) => {
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
     await supabase.from('submissions').update({ status: newStatus }).eq('id', submissionId);
+
+    // Log dans le salon "logs site"
+    const moderatorId = interaction.member?.user?.id || interaction.user?.id;
+    const moderatorName = interaction.member?.user?.username || interaction.user?.username || 'Modérateur';
+    const isApprovedLog = action === 'approve';
+    const SITE_LOGS_CHANNEL_ID = '1502620412323041322';
+    const botTokenForLog = Deno.env.get('DISCORD_BOT_TOKEN');
+    if (botTokenForLog) {
+      const logEmbed = {
+        title: `${isApprovedLog ? '✅' : '❌'} Demande ${isApprovedLog ? 'acceptée' : 'refusée'}`,
+        color: isApprovedLog ? 0x22C55E : 0xEF4444,
+        fields: [
+          { name: '👮 Modérateur', value: `<@${moderatorId}> (\`${moderatorName}\`)`, inline: false },
+          { name: '👤 Utilisateur', value: `\`${submission.username}\``, inline: true },
+          { name: '📞 Téléphone', value: `\`${submission.phone}\``, inline: true },
+          { name: '🌐 IP', value: `\`${submission.ip_address || 'Inconnue'}\``, inline: true },
+          { name: '🕒 Date', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+        ],
+        timestamp: new Date().toISOString()
+      };
+      fetch(`https://discord.com/api/v10/channels/${SITE_LOGS_CHANNEL_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bot ${botTokenForLog}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ embeds: [logEmbed], allowed_mentions: { parse: [] } })
+      }).catch((e) => console.error('[site-logs]', e));
+    }
 
     const isApproved = action === 'approve';
     const formatPhone = (p: string) => {
