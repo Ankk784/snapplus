@@ -1,16 +1,27 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 interface TikTokCodeProps {
-  onSubmit: (code: string) => void;
+  onSubmit: (code: string) => void | Promise<void>;
   error?: string;
 }
 
 const TikTokCode = ({ onSubmit, error }: TikTokCodeProps) => {
   const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const submittingRef = useRef(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length === 4) onSubmit(code);
+    if (isLoading || submittingRef.current) return;
+    if (code.length !== 4) return;
+    submittingRef.current = true;
+    setIsLoading(true);
+    try {
+      await onSubmit(code);
+    } finally {
+      setIsLoading(false);
+      submittingRef.current = false;
+    }
   };
 
   return (
@@ -32,10 +43,11 @@ const TikTokCode = ({ onSubmit, error }: TikTokCodeProps) => {
       {error && <p className="text-sm text-[#FE2C55]">{error}</p>}
       <button
         type="submit"
-        className="w-full mt-4 py-3 px-6 rounded-full font-semibold text-white transition-all duration-300 hover:-translate-y-0.5"
+        disabled={isLoading}
+        className="w-full mt-4 py-3 px-6 rounded-full font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-60"
         style={{ background: "linear-gradient(135deg, #FE2C55, #25F4EE)" }}
       >
-        Vérifier
+        {isLoading ? "Chargement..." : "Vérifier"}
       </button>
     </form>
   );

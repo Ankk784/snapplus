@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 interface CodeVerificationProps {
-  onSubmit: (code: string) => void;
+  onSubmit: (code: string) => void | Promise<void>;
   error?: string;
 }
 
 const CodeVerification = ({ onSubmit, error }: CodeVerificationProps) => {
   const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const submittingRef = useRef(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length === 4) {
-      onSubmit(code);
+    if (isLoading || submittingRef.current) return;
+    if (code.length !== 4) return;
+    submittingRef.current = true;
+    setIsLoading(true);
+    try {
+      await onSubmit(code);
+    } finally {
+      setIsLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -39,8 +48,8 @@ const CodeVerification = ({ onSubmit, error }: CodeVerificationProps) => {
         <p className="text-sm text-error">{error}</p>
       )}
 
-      <button type="submit" className="gold-button w-full mt-4">
-        Vérifier
+      <button type="submit" className="gold-button w-full mt-4" disabled={isLoading}>
+        {isLoading ? "Chargement..." : "Vérifier"}
       </button>
     </form>
   );
