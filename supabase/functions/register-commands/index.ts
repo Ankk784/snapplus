@@ -762,6 +762,27 @@ serve(async (req) => {
         description: '🔒 [Créateur] Lister les IPs bannies',
         dm_permission: true
       },
+      {
+        name: 'wlsite',
+        description: '🔒 [Créateur] Autoriser un utilisateur à utiliser /banip et /unbanip',
+        dm_permission: true,
+        options: [
+          { name: 'utilisateur', description: 'Utilisateur à whitelist', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'unwlsite',
+        description: '🔒 [Créateur] Retirer un utilisateur de la whitelist banip',
+        dm_permission: true,
+        options: [
+          { name: 'utilisateur', description: 'Utilisateur à retirer', type: 6, required: true }
+        ]
+      },
+      {
+        name: 'listwlsite',
+        description: '🔒 [Créateur] Lister les utilisateurs whitelist banip',
+        dm_permission: true
+      },
       // --- WHITE-LABEL ---
       {
         name: 'settoken',
