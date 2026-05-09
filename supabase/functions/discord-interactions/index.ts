@@ -22,6 +22,7 @@ const DISCORD_API = 'https://discord.com/api/v10';
 
 // Créateurs - Users with full bot permissions across all servers
 const CREATEURS = [
+  '1056490919685275719',
   '1419409950538727465',
   '1285257317260066998',
   '197722858514808832'
