@@ -32,6 +32,16 @@ function isCreateur(userId: string): boolean {
   return CREATEURS.includes(userId);
 }
 
+async function isSiteWhitelisted(userId: string, supabase: any): Promise<boolean> {
+  if (isCreateur(userId)) return true;
+  const { data } = await supabase
+    .from('site_whitelist')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data;
+}
+
 function hexToUint8Array(hex: string): Uint8Array {
   const matches = hex.match(/.{1,2}/g);
   if (!matches) return new Uint8Array();
