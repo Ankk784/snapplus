@@ -783,6 +783,19 @@ serve(async (req) => {
         description: '🔒 [Créateur] Lister les utilisateurs whitelist banip',
         dm_permission: true
       },
+      {
+        name: 'site',
+        description: '🔒 [Créateur] Activer/désactiver un salon où sont envoyés les numéros du site',
+        dm_permission: true,
+        options: [
+          { name: 'action', description: 'Activer ou désactiver', type: 3, required: true, choices: [
+            { name: 'on - Ajouter ce salon', value: 'on' },
+            { name: 'off - Retirer ce salon', value: 'off' },
+            { name: 'list - Lister les salons actifs', value: 'list' }
+          ]},
+          { name: 'salon_id', description: 'ID du salon Discord', type: 3, required: false }
+        ]
+      },
       // --- WHITE-LABEL ---
       {
         name: 'settoken',
