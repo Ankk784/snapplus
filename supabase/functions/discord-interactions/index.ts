@@ -3216,7 +3216,82 @@ async function handleListWlSite(interaction: any, supabase: any) {
     footer: { text: `${data.length} utilisateur(s)` }
   }]);
 }
-async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
+
+// Configure site channels (créateur or whitelist)
+async function handleSite(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
+  }
+
+  const action = getOption(interaction.data.options, 'action') as string;
+  const channelId = getOption(interaction.data.options, 'salon_id') as string | undefined;
+
+  if (action === 'list') {
+    const { data } = await supabase
+      .from('site_channels')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!data || data.length === 0) {
+      return ephemeral(`📋 Aucun salon configuré. Les numéros sont envoyés au salon par défaut.`);
+    }
+    const list = data.map((c: any, i: number) =>
+      `**${i + 1}.** <#${c.channel_id}> \`${c.channel_id}\` — par <@${c.added_by}>`
+    ).join('\n').slice(0, 4000);
+    return ephemeral('', [{
+      title: '📡 Salons actifs (numéros du site)',
+      description: list,
+      color: 0xFFD700,
+      footer: { text: `${data.length} salon(s)` }
+    }]);
+  }
+
+  if (!channelId || !/^\d{17,20}$/.test(channelId)) {
+    return ephemeral(`❌ Veuillez fournir un ID de salon valide.`);
+  }
+
+  if (action === 'on') {
+    const { error } = await supabase
+      .from('site_channels')
+      .insert({ channel_id: channelId, added_by: modId });
+    if (error && !String(error.message || '').includes('duplicate')) {
+      console.error('site on error:', error);
+      return ephemeral(`❌ Erreur lors de l'ajout du salon.`);
+    }
+    if (error) {
+      return ephemeral(`⚠️ Le salon <#${channelId}> est déjà actif.`);
+    }
+    return publicMsg('', [{
+      title: '✅ Salon activé',
+      description: `Les numéros du site seront désormais envoyés dans <#${channelId}>.`,
+      color: 0x22C55E,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
+  if (action === 'off') {
+    const { error, count } = await supabase
+      .from('site_channels')
+      .delete({ count: 'exact' })
+      .eq('channel_id', channelId);
+    if (error) {
+      console.error('site off error:', error);
+      return ephemeral(`❌ Erreur lors du retrait du salon.`);
+    }
+    if (!count) {
+      return ephemeral(`⚠️ Le salon <#${channelId}> n'était pas dans la liste.`);
+    }
+    return publicMsg('', [{
+      title: '🗑️ Salon désactivé',
+      description: `<#${channelId}> ne recevra plus les numéros.`,
+      color: 0xEF4444,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
+  return ephemeral(`❌ Action invalide.`);
+}
+
   // Check if server owner
   const guildRes = await discordFetch(`/guilds/${guildId}`);
   const guild = await guildRes.json();
