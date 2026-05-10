@@ -3292,6 +3292,7 @@ async function handleSite(interaction: any, supabase: any) {
   return ephemeral(`❌ Action invalide.`);
 }
 
+async function isOwner(supabase: any, guildId: string, userId: string): Promise<boolean> {
   // Check if server owner
   const guildRes = await discordFetch(`/guilds/${guildId}`);
   const guild = await guildRes.json();
