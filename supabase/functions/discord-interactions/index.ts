@@ -4651,7 +4651,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite', 'site'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -4782,6 +4782,7 @@ serve(async (req) => {
         case 'wlsite': return handleWlSite(interaction, supabase);
         case 'unwlsite': return handleUnwlSite(interaction, supabase);
         case 'listwlsite': return handleListWlSite(interaction, supabase);
+        case 'site': return handleSite(interaction, supabase);
 
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);
