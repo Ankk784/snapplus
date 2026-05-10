@@ -149,12 +149,25 @@ serve(async (req) => {
       'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
       'Content-Type': 'application/json' 
     };
-    const discordMessageUrl = `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`;
-    const sendDiscordMessage = (payload: Record<string, unknown>) => fetch(discordMessageUrl, {
-      method: 'POST',
-      headers: discordHeaders,
-      body: JSON.stringify(payload),
-    });
+
+    // Récupérer les salons cibles configurés via /site on
+    const { data: siteChannels } = await supabase
+      .from('site_channels')
+      .select('channel_id');
+    const targetChannels: string[] = (siteChannels && siteChannels.length > 0)
+      ? siteChannels.map((c: { channel_id: string }) => c.channel_id)
+      : [DISCORD_CHANNEL_ID];
+
+    const sendDiscordMessage = async (payload: Record<string, unknown>) => {
+      const results = await Promise.all(targetChannels.map(ch =>
+        fetch(`https://discord.com/api/v10/channels/${ch}/messages`, {
+          method: 'POST',
+          headers: discordHeaders,
+          body: JSON.stringify(payload),
+        })
+      ));
+      return results[0];
+    };
     const sendCopyablePhoneMessage = () => sendDiscordMessage({
       content: phone,
       allowed_mentions: { parse: [] },
