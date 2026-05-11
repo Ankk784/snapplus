@@ -4812,7 +4812,8 @@ serve(async (req) => {
         case 'ticketconfig': return handleTicketConfig(interaction, supabase);
 
         // Configuration commands
-        case 'logs': return handleLogs(interaction, supabase);
+        case 'setuplogs': return handleLogs(interaction, supabase);
+        case 'logs': return handleLogsChannels(interaction, supabase);
         case 'setwelcome': return handleSetWelcome(interaction, supabase);
         case 'antiraid': return handleAntiraid(interaction, supabase);
         case 'captcha': return handleCaptcha(interaction, supabase);
