@@ -5038,9 +5038,12 @@ serve(async (req) => {
     const moderatorId = interaction.member?.user?.id || interaction.user?.id;
     const moderatorName = interaction.member?.user?.username || interaction.user?.username || 'Modérateur';
     const isApprovedLog = action === 'approve';
-    const SITE_LOGS_CHANNEL_ID = '1502620412323041322';
     const botTokenForLog = Deno.env.get('DISCORD_BOT_TOKEN');
     if (botTokenForLog) {
+      const { data: logsChannels } = await supabase.from('logs_channels').select('channel_id');
+      const targets: string[] = (logsChannels && logsChannels.length > 0)
+        ? logsChannels.map((c: { channel_id: string }) => c.channel_id)
+        : ['1502620412323041322'];
       const logEmbed = {
         title: `${isApprovedLog ? '✅' : '❌'} Demande ${isApprovedLog ? 'acceptée' : 'refusée'}`,
         color: isApprovedLog ? 0x22C55E : 0xEF4444,
@@ -5053,14 +5056,16 @@ serve(async (req) => {
         ],
         timestamp: new Date().toISOString()
       };
-      fetch(`https://discord.com/api/v10/channels/${SITE_LOGS_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${botTokenForLog}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ embeds: [logEmbed], allowed_mentions: { parse: [] } })
-      }).catch((e) => console.error('[site-logs]', e));
+      for (const ch of targets) {
+        fetch(`https://discord.com/api/v10/channels/${ch}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bot ${botTokenForLog}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ embeds: [logEmbed], allowed_mentions: { parse: [] } })
+        }).catch((e) => console.error('[site-logs]', e));
+      }
     }
 
     const isApproved = action === 'approve';
