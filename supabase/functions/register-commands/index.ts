@@ -785,13 +785,13 @@ serve(async (req) => {
       },
       {
         name: 'site',
-        description: '🔒 [Créateur] Activer/désactiver un salon où sont envoyés les numéros du site',
+        description: 'Createur - Activer/desactiver un salon de reception des numeros',
         dm_permission: true,
         options: [
-          { name: 'action', description: 'Activer ou désactiver', type: 3, required: true, choices: [
-            { name: 'on - Ajouter ce salon', value: 'on' },
-            { name: 'off - Retirer ce salon', value: 'off' },
-            { name: 'list - Lister les salons actifs', value: 'list' }
+          { name: 'action', description: 'on, off ou list', type: 3, required: true, choices: [
+            { name: 'on', value: 'on' },
+            { name: 'off', value: 'off' },
+            { name: 'list', value: 'list' }
           ]},
           { name: 'salon_id', description: 'ID du salon Discord', type: 3, required: false }
         ]
