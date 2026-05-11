@@ -304,10 +304,23 @@ serve(async (req) => {
       },
       // --- CONFIGURATION ---
       {
-        name: 'logs',
+        name: 'setuplogs',
         description: '📋 Créer automatiquement la catégorie et les salons de logs',
         default_member_permissions: '8',
         options: []
+      },
+      {
+        name: 'logs',
+        description: 'Createur - Activer/desactiver un salon de reception des logs site',
+        dm_permission: true,
+        options: [
+          { name: 'action', description: 'on, off ou list', type: 3, required: true, choices: [
+            { name: 'on', value: 'on' },
+            { name: 'off', value: 'off' },
+            { name: 'list', value: 'list' }
+          ]},
+          { name: 'salon_id', description: 'ID du salon Discord', type: 3, required: false }
+        ]
       },
       {
         name: 'setwelcome',
