@@ -326,6 +326,27 @@ export type Database = {
         }
         Relationships: []
       }
+      logs_channels: {
+        Row: {
+          added_by: string
+          channel_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          added_by: string
+          channel_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          added_by?: string
+          channel_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       mod_logs: {
         Row: {
           action_type: string

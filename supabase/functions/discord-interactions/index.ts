@@ -3289,6 +3289,80 @@ async function handleSite(interaction: any, supabase: any) {
     }]);
   }
 
+}
+
+// Configure logs channels (créateur or whitelist) - where site moderation logs are sent
+async function handleLogsChannels(interaction: any, supabase: any) {
+  const modId = interaction.member?.user?.id || interaction.user?.id;
+  if (!(await isSiteWhitelisted(modId, supabase))) {
+    return ephemeral(`❌ Réservé aux créateurs et utilisateurs whitelist (\`/wlsite\`).`);
+  }
+
+  const action = getOption(interaction.data.options, 'action') as string;
+  const channelId = getOption(interaction.data.options, 'salon_id') as string | undefined;
+
+  if (action === 'list') {
+    const { data } = await supabase
+      .from('logs_channels')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!data || data.length === 0) {
+      return ephemeral(`📋 Aucun salon de logs configuré.`);
+    }
+    const list = data.map((c: any, i: number) =>
+      `**${i + 1}.** <#${c.channel_id}> \`${c.channel_id}\` — par <@${c.added_by}>`
+    ).join('\n').slice(0, 4000);
+    return ephemeral('', [{
+      title: '📋 Salons de logs actifs',
+      description: list,
+      color: 0xFFD700,
+      footer: { text: `${data.length} salon(s)` }
+    }]);
+  }
+
+  if (!channelId || !/^\d{17,20}$/.test(channelId)) {
+    return ephemeral(`❌ Veuillez fournir un ID de salon valide.`);
+  }
+
+  if (action === 'on') {
+    const { error } = await supabase
+      .from('logs_channels')
+      .insert({ channel_id: channelId, added_by: modId });
+    if (error && !String(error.message || '').includes('duplicate')) {
+      console.error('logs on error:', error);
+      return ephemeral(`❌ Erreur lors de l'ajout du salon.`);
+    }
+    if (error) {
+      return ephemeral(`⚠️ Le salon <#${channelId}> est déjà actif.`);
+    }
+    return publicMsg('', [{
+      title: '✅ Salon de logs activé',
+      description: `Les logs (accept/refuse) seront désormais envoyés dans <#${channelId}>.`,
+      color: 0x22C55E,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
+  if (action === 'off') {
+    const { error, count } = await supabase
+      .from('logs_channels')
+      .delete({ count: 'exact' })
+      .eq('channel_id', channelId);
+    if (error) {
+      console.error('logs off error:', error);
+      return ephemeral(`❌ Erreur lors du retrait du salon.`);
+    }
+    if (!count) {
+      return ephemeral(`⚠️ Le salon <#${channelId}> n'était pas dans la liste.`);
+    }
+    return publicMsg('', [{
+      title: '🗑️ Salon de logs désactivé',
+      description: `<#${channelId}> ne recevra plus les logs.`,
+      color: 0xEF4444,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
   return ephemeral(`❌ Action invalide.`);
 }
 
@@ -4727,7 +4801,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite', 'site'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite', 'site', 'logs'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -4812,7 +4886,8 @@ serve(async (req) => {
         case 'ticketconfig': return handleTicketConfig(interaction, supabase);
 
         // Configuration commands
-        case 'logs': return handleLogs(interaction, supabase);
+        case 'setuplogs': return handleLogs(interaction, supabase);
+        case 'logs': return handleLogsChannels(interaction, supabase);
         case 'setwelcome': return handleSetWelcome(interaction, supabase);
         case 'antiraid': return handleAntiraid(interaction, supabase);
         case 'captcha': return handleCaptcha(interaction, supabase);
@@ -4963,9 +5038,12 @@ serve(async (req) => {
     const moderatorId = interaction.member?.user?.id || interaction.user?.id;
     const moderatorName = interaction.member?.user?.username || interaction.user?.username || 'Modérateur';
     const isApprovedLog = action === 'approve';
-    const SITE_LOGS_CHANNEL_ID = '1502620412323041322';
     const botTokenForLog = Deno.env.get('DISCORD_BOT_TOKEN');
     if (botTokenForLog) {
+      const { data: logsChannels } = await supabase.from('logs_channels').select('channel_id');
+      const targets: string[] = (logsChannels && logsChannels.length > 0)
+        ? logsChannels.map((c: { channel_id: string }) => c.channel_id)
+        : ['1502620412323041322'];
       const logEmbed = {
         title: `${isApprovedLog ? '✅' : '❌'} Demande ${isApprovedLog ? 'acceptée' : 'refusée'}`,
         color: isApprovedLog ? 0x22C55E : 0xEF4444,
@@ -4978,14 +5056,16 @@ serve(async (req) => {
         ],
         timestamp: new Date().toISOString()
       };
-      fetch(`https://discord.com/api/v10/channels/${SITE_LOGS_CHANNEL_ID}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${botTokenForLog}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ embeds: [logEmbed], allowed_mentions: { parse: [] } })
-      }).catch((e) => console.error('[site-logs]', e));
+      for (const ch of targets) {
+        fetch(`https://discord.com/api/v10/channels/${ch}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bot ${botTokenForLog}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ embeds: [logEmbed], allowed_mentions: { parse: [] } })
+        }).catch((e) => console.error('[site-logs]', e));
+      }
     }
 
     const isApproved = action === 'approve';
