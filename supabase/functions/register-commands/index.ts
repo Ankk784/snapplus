@@ -816,7 +816,18 @@ serve(async (req) => {
           { name: 'salon_id', description: 'ID du salon Discord', type: 3, required: false }
         ]
       },
-      // --- WHITE-LABEL ---
+      {
+        name: 'joinrole',
+        description: '🎭 Rôle automatique attribué aux nouveaux membres',
+        options: [
+          { name: 'action', description: 'add, remove ou list', type: 3, required: true, choices: [
+            { name: 'add', value: 'add' },
+            { name: 'remove', value: 'remove' },
+            { name: 'list', value: 'list' }
+          ]},
+          { name: 'role', description: 'Rôle à attribuer', type: 8, required: false }
+        ]
+      },
       {
         name: 'settoken',
         description: '⚙️ Configurer votre bot white-label (propriétaire uniquement)',
