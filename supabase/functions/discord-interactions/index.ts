@@ -5100,6 +5100,7 @@ serve(async (req) => {
         case 'unwlsite': return handleUnwlSite(interaction, supabase);
         case 'listwlsite': return handleListWlSite(interaction, supabase);
         case 'site': return handleSite(interaction, supabase);
+        case 'joinrole': return handleJoinrole(interaction, supabase);
 
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);
