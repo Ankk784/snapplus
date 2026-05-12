@@ -5071,6 +5071,29 @@ serve(async (req) => {
     const customId = interaction.data.custom_id;
 
     // Handle help category select menu
+    // Handle verif button
+    if (customId === 'verif_role') {
+      const guildId = interaction.guild_id;
+      const userId = interaction.member?.user?.id || interaction.user?.id;
+      if (!guildId || !userId) {
+        return ephemeral('❌ Impossible de t\'identifier.');
+      }
+      const memberRoles: string[] = interaction.member?.roles || [];
+      if (memberRoles.includes(VERIF_ROLE_ID)) {
+        return ephemeral('✅ Tu es déjà vérifié !');
+      }
+      const r = await discordFetch(
+        `/guilds/${guildId}/members/${userId}/roles/${VERIF_ROLE_ID}`,
+        { method: 'PUT' }
+      );
+      if (!r.ok) {
+        const txt = await r.text();
+        console.error('[verif] role assign failed', r.status, txt);
+        return ephemeral('❌ Impossible d\'attribuer le rôle. Vérifie que le bot a la permission **Gérer les rôles** et qu\'il est au-dessus du rôle.');
+      }
+      return ephemeral('✅ Vérification réussie ! Bienvenue.');
+    }
+
     if (customId === 'help_category') {
       const selectedCategory = interaction.data.values?.[0];
       const cat = HELP_CATEGORIES[selectedCategory];
