@@ -5018,6 +5018,7 @@ serve(async (req) => {
         case 'soutien-nolog': return handleSoutienNolog(interaction, supabase);
         case 'piconly': return handlePiconly(interaction, supabase);
         case 'ticketpanel': return handleTicketPanel(interaction);
+        case 'verif': return handleVerif(interaction);
 
         default:
           return ephemeral("❌ Commande inconnue.");
