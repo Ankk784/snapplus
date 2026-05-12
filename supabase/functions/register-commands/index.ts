@@ -25,6 +25,13 @@ serve(async (req) => {
         description: 'Affiche la liste des commandes disponibles'
       },
       {
+        name: 'verif',
+        description: '✅ Envoie l\'embed de vérification (clic = rôle attribué)',
+        options: [
+          { name: 'salon', description: 'Salon où poster (par défaut: ici)', type: 7, required: false }
+        ]
+      },
+      {
         name: 'say',
         description: 'Envoie un message dans le salon',
         options: [
