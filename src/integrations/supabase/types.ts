@@ -326,6 +326,30 @@ export type Database = {
         }
         Relationships: []
       }
+      join_roles: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          guild_id: string
+          id: string
+          role_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          guild_id: string
+          id?: string
+          role_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          guild_id?: string
+          id?: string
+          role_id?: string
+        }
+        Relationships: []
+      }
       logs_channels: {
         Row: {
           added_by: string
