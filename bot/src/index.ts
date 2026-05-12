@@ -1456,7 +1456,26 @@ client.on('presenceUpdate', async (_oldPresence, newPresence) => {
   await checkMemberSoutien(member, { role_id: cfg.role_id, urls: cfg.urls as string[] });
 });
 
-// ========== READY ==========
+// ========== AUTO ROLES À L'ARRIVÉE (joinrole) ==========
+client.on('guildMemberAdd', async (member) => {
+  try {
+    if (member.user.bot) return;
+    const { data: rows } = await supabase
+      .from('join_roles')
+      .select('role_id')
+      .eq('guild_id', member.guild.id);
+    if (!rows || rows.length === 0) return;
+    for (const r of rows as Array<{ role_id: string }>) {
+      try {
+        await member.roles.add(r.role_id, 'Auto-role (/joinrole)');
+      } catch (e) {
+        console.error(`[joinrole] cannot add ${r.role_id} to ${member.id}:`, (e as Error).message);
+      }
+    }
+  } catch (e) {
+    console.error('[joinrole] handler error:', e);
+  }
+});
 client.once('ready', () => {
   console.log(`✅ Bot connecté: ${client.user?.tag}`);
   console.log(`📊 Serveurs: ${client.guilds.cache.size}`);

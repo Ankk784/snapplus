@@ -3388,7 +3388,76 @@ async function handleSite(interaction: any, supabase: any) {
 
 }
 
-// Configure logs channels (créateur or whitelist) - where site moderation logs are sent
+// Configure auto-roles assigned to new members (server admins)
+async function handleJoinrole(interaction: any, supabase: any) {
+  const guildId = interaction.guild_id;
+  if (!guildId) return ephemeral('❌ Commande utilisable uniquement sur un serveur.');
+
+  // Require Manage Roles permission (0x10000000)
+  const perms = BigInt(interaction.member?.permissions || '0');
+  const userId = interaction.member?.user?.id;
+  if (!isCreateur(userId) && (perms & 0x10000000n) === 0n) {
+    return ephemeral('❌ Tu dois avoir la permission **Gérer les rôles** pour utiliser cette commande.');
+  }
+
+  const action = getOption(interaction.data.options, 'action') as string;
+  const roleId = getOption(interaction.data.options, 'role') as string | undefined;
+
+  if (action === 'list') {
+    const { data } = await supabase
+      .from('join_roles')
+      .select('*')
+      .eq('guild_id', guildId)
+      .order('created_at', { ascending: false });
+    if (!data || data.length === 0) {
+      return ephemeral('📋 Aucun rôle automatique configuré.');
+    }
+    const list = data.map((r: any, i: number) =>
+      `**${i + 1}.** <@&${r.role_id}> — ajouté par <@${r.added_by}>`
+    ).join('\n').slice(0, 4000);
+    return ephemeral('', [{
+      title: '🎭 Rôles automatiques (à l\'arrivée)',
+      description: list,
+      color: 0xFFD700,
+      footer: { text: `${data.length} rôle(s)` }
+    }]);
+  }
+
+  if (!roleId) return ephemeral('❌ Veuillez fournir un rôle.');
+
+  if (action === 'add') {
+    const { error } = await supabase
+      .from('join_roles')
+      .insert({ guild_id: guildId, role_id: roleId, added_by: userId });
+    if (error && !String(error.message || '').includes('duplicate')) {
+      console.error('joinrole add error:', error);
+      return ephemeral('❌ Erreur lors de l\'ajout du rôle.');
+    }
+    if (error) return ephemeral(`⚠️ Le rôle <@&${roleId}> est déjà configuré.`);
+    return publicMsg('', [{
+      title: '✅ Rôle automatique ajouté',
+      description: `Tous les nouveaux membres recevront <@&${roleId}>.\n\n⚠️ Vérifie que le bot a la permission **Gérer les rôles** et que son rôle est **au-dessus** de <@&${roleId}>.`,
+      color: 0x22C55E,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+
+  if (action === 'remove') {
+    const { error, count } = await supabase
+      .from('join_roles')
+      .delete({ count: 'exact' })
+      .eq('guild_id', guildId)
+      .eq('role_id', roleId);
+    if (error) return ephemeral('❌ Erreur lors du retrait.');
+    if (!count) return ephemeral(`⚠️ Le rôle <@&${roleId}> n'était pas dans la liste.`);
+    return publicMsg('', [{
+      title: '🗑️ Rôle automatique retiré',
+      description: `<@&${roleId}> ne sera plus attribué aux nouveaux membres.`,
+      color: 0xEF4444,
+      timestamp: new Date().toISOString()
+    }]);
+  }
+}
 async function handleLogsChannels(interaction: any, supabase: any) {
   const modId = interaction.member?.user?.id || interaction.user?.id;
   if (!(await isSiteWhitelisted(modId, supabase))) {
@@ -4898,7 +4967,7 @@ serve(async (req) => {
     const cmd = interaction.data.name;
 
     // Commands that don't require license (free commands + purchase commands + créateur commands + white-label)
-    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite', 'site', 'logs'];
+    const freeCmds = ['license', 'help', 'ping', 'buy', 'redeem', 'setpaypal', 'setltc', 'listallowners', 'listallbuyers', 'revoke', 'createlicense', 'listlicenses', 'settoken', 'removetoken', 'banip', 'unbanip', 'listbannedips', 'wlsite', 'unwlsite', 'listwlsite', 'site', 'logs', 'joinrole'];
     
     // Get user ID for créateur check
     const userId = interaction.member?.user?.id || interaction.user?.id;
@@ -5031,6 +5100,7 @@ serve(async (req) => {
         case 'unwlsite': return handleUnwlSite(interaction, supabase);
         case 'listwlsite': return handleListWlSite(interaction, supabase);
         case 'site': return handleSite(interaction, supabase);
+        case 'joinrole': return handleJoinrole(interaction, supabase);
 
         // White-label commands
         case 'settoken': return handleSetToken(interaction, supabase);
