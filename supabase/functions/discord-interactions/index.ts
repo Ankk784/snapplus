@@ -785,49 +785,109 @@ function handleHelp(interaction: any) {
 }
 
 // Server Gestion handlers
-async function handleMassiverole(interaction: any) {
+async function processMassRole(interaction: any, mode: 'add' | 'remove') {
   const guildId = interaction.guild_id;
   const roleId = getOption(interaction.data.options, 'role') as string;
+  const appId = Deno.env.get('DISCORD_APPLICATION_ID');
+  const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+  const token = interaction.token;
 
-  // Get all members
-  const res = await discordFetch(`/guilds/${guildId}/members?limit=1000`);
-  const members = await res.json();
+  const updateOriginal = async (content: string) => {
+    await fetch(`${DISCORD_API}/webhooks/${appId}/${token}/messages/@original`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+  };
 
-  if (!Array.isArray(members)) {
-    return ephemeral(`❌ Impossible de récupérer les membres.`);
-  }
-
-  let added = 0;
-  for (const member of members) {
-    if (!member.roles?.includes(roleId)) {
-      const addRes = await discordFetch(`/guilds/${guildId}/members/${member.user.id}/roles/${roleId}`, { method: 'PUT' });
-      if (addRes.ok) added++;
+  const rlFetch = async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
+    let res = await fetch(`${DISCORD_API}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    });
+    if (res.status === 429) {
+      const body = await res.json();
+      const retryAfter = (body.retry_after || 1) * 1000;
+      await new Promise(r => setTimeout(r, retryAfter + 100));
+      res = await fetch(`${DISCORD_API}${endpoint}`, {
+        ...options,
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
     }
+    return res;
+  };
+
+  const initialResponse = new Response(JSON.stringify({
+    type: INTERACTION_RESPONSE_TYPE.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {}
+  }), { headers: { 'Content-Type': 'application/json' } });
+
+  const bgTask = (async () => {
+    try {
+      let allMembers: any[] = [];
+      let after = '0';
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await rlFetch(`/guilds/${guildId}/members?limit=1000&after=${after}`);
+        if (!res.ok) {
+          await updateOriginal(`❌ Impossible de récupérer les membres (intent **Server Members** activé ?).`);
+          return;
+        }
+        const batch = await res.json();
+        if (!Array.isArray(batch) || batch.length === 0) { hasMore = false; break; }
+        allMembers = allMembers.concat(batch);
+        after = batch[batch.length - 1].user.id;
+        if (batch.length < 1000) hasMore = false;
+      }
+
+      const humans = allMembers.filter((m: any) => !m.user?.bot);
+      let count = 0;
+      let failed = 0;
+
+      for (const member of humans) {
+        const has = member.roles?.includes(roleId);
+        if (mode === 'add' ? !has : has) {
+          const r = await rlFetch(
+            `/guilds/${guildId}/members/${member.user.id}/roles/${roleId}`,
+            { method: mode === 'add' ? 'PUT' : 'DELETE' }
+          );
+          if (r.ok) count++; else failed++;
+          await new Promise(r => setTimeout(r, 50));
+        }
+      }
+
+      const verb = mode === 'add' ? 'ajouté à' : 'retiré de';
+      await updateOriginal(`✅ Le rôle <@&${roleId}> a été ${verb} **${count}** membre(s).${failed ? ` (${failed} échecs)` : ''}`);
+    } catch (e) {
+      console.error('[massrole] error', e);
+      await updateOriginal(`❌ Erreur: ${e instanceof Error ? e.message : 'inconnue'}`);
+    }
+  })();
+
+  // @ts-ignore
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(bgTask);
   }
 
-  return publicMsg(`✅ Le rôle <@&${roleId}> a été ajouté à **${added}** membre(s).`);
+  return initialResponse;
+}
+
+async function handleMassiverole(interaction: any) {
+  return processMassRole(interaction, 'add');
 }
 
 async function handleUnmassiverole(interaction: any) {
-  const guildId = interaction.guild_id;
-  const roleId = getOption(interaction.data.options, 'role') as string;
-
-  const res = await discordFetch(`/guilds/${guildId}/members?limit=1000`);
-  const members = await res.json();
-
-  if (!Array.isArray(members)) {
-    return ephemeral(`❌ Impossible de récupérer les membres.`);
-  }
-
-  let removed = 0;
-  for (const member of members) {
-    if (member.roles?.includes(roleId)) {
-      const delRes = await discordFetch(`/guilds/${guildId}/members/${member.user.id}/roles/${roleId}`, { method: 'DELETE' });
-      if (delRes.ok) removed++;
-    }
-  }
-
-  return publicMsg(`✅ Le rôle <@&${roleId}> a été retiré de **${removed}** membre(s).`);
+  return processMassRole(interaction, 'remove');
 }
 
 async function handleRenew(interaction: any) {
