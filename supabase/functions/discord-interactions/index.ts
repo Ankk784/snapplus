@@ -785,6 +785,43 @@ function handleHelp(interaction: any) {
 }
 
 // Server Gestion handlers
+// ========== VERIF COMMAND ==========
+const VERIF_ROLE_ID = '1503851361886798005';
+const VERIF_IMAGE_URL = 'https://snapplus.lovable.app/verif.png';
+
+async function handleVerif(interaction: any) {
+  const channelId = (getOption(interaction.data.options, 'salon') as string) || interaction.channel_id;
+
+  const embed = {
+    title: '✅ Vérification',
+    description: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nClique sur le bouton **✅ Vérifier** ci-dessous pour obtenir ton accès au serveur.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    color: 0x000000,
+    image: { url: VERIF_IMAGE_URL },
+    timestamp: new Date().toISOString()
+  };
+
+  const components = [{
+    type: 1,
+    components: [{
+      type: 2,
+      style: 3, // green
+      label: '✅ Vérifier',
+      custom_id: 'verif_role'
+    }]
+  }];
+
+  const res = await discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ embeds: [embed], components })
+  });
+
+  if (!res.ok) {
+    return ephemeral(`❌ Impossible d'envoyer l'embed dans <#${channelId}>.`);
+  }
+
+  return ephemeral(`✅ Embed de vérification envoyé dans <#${channelId}>.`);
+}
+
 async function processMassRole(interaction: any, mode: 'add' | 'remove') {
   const guildId = interaction.guild_id;
   const roleId = getOption(interaction.data.options, 'role') as string;
