@@ -19,8 +19,10 @@ function generateLicenseKey(): string {
   let key = '';
   for (let i = 0; i < 4; i++) {
     if (i > 0) key += '-';
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
     for (let j = 0; j < 4; j++) {
-      key += chars.charAt(Math.floor(Math.random() * chars.length));
+      key += chars[bytes[j] % chars.length];
     }
   }
   return key;
