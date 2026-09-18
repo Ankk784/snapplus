@@ -219,8 +219,8 @@ serve(async (req) => {
             inline: false
           },
           {
-            name: `${operator.emoji} Opérateur mobile détecté`,
-            value: `>>> **${operator.name}**`,
+            name: `${operator.emoji} Opérateur mobile (estimé)`,
+            value: `>>> **${operator.name}**\n-# Estimation d'après le préfixe ARCEP — peut différer si le numéro a été porté.`,
             inline: false
           },
           {
