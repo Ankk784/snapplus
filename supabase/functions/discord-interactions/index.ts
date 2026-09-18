@@ -2124,12 +2124,9 @@ async function handleLicense(interaction: any, supabase: any) {
   }
 
   if (action === 'generate') {
-    // Only bot owner/admin can generate licenses
-    const permissions = BigInt(interaction.member.permissions);
-    const isAdmin = (permissions & BigInt(0x8)) === BigInt(0x8);
-
-    if (!isAdmin) {
-      return ephemeral('❌ Vous n\'avez pas la permission de générer des licences.');
+    // Réservé aux Créateurs du bot (sinon contournement du paiement)
+    if (!isCreateur(userId)) {
+      return ephemeral('❌ Réservé aux Créateurs du bot.');
     }
 
     const newKey = generateLicenseKey();
