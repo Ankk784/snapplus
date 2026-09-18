@@ -1970,8 +1970,10 @@ function generateLicenseKey(): string {
   const segments = [];
   for (let i = 0; i < 4; i++) {
     let segment = '';
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
     for (let j = 0; j < 4; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
+      segment += chars[bytes[j] % chars.length];
     }
     segments.push(segment);
   }
