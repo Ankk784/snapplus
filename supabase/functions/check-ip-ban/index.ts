@@ -12,9 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    // Get IP from request headers
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                     req.headers.get('cf-connecting-ip') ||
+    // IP réelle : cf-connecting-ip est posé par le proxy et n'est pas falsifiable.
+    // Sinon on prend la dernière valeur de x-forwarded-for (celle du proxy le plus proche).
+    const xff = req.headers.get('x-forwarded-for')?.split(',').map(s => s.trim()).filter(Boolean);
+    const clientIp = req.headers.get('cf-connecting-ip') ||
+                     (xff && xff.length ? xff[xff.length - 1] : null) ||
                      req.headers.get('x-real-ip') ||
                      'unknown';
 
