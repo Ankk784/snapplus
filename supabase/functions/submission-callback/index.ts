@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     // Require a shared secret (set CALLBACK_SECRET in Supabase secrets).
-    // Accept via header X-Callback-Secret or query ?secret=...
+    // Header only: X-Callback-Secret (jamais dans l'URL, sinon il finit dans les logs).
     const expectedSecret = Deno.env.get('CALLBACK_SECRET');
     if (!expectedSecret) {
       console.error('[submission-callback] CALLBACK_SECRET not configured');
@@ -23,10 +23,7 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const providedSecret =
-      req.headers.get('x-callback-secret') ||
-      url.searchParams.get('secret') ||
-      '';
+    const providedSecret = req.headers.get('x-callback-secret') || '';
 
     if (providedSecret !== expectedSecret) {
       return new Response('Forbidden', { status: 403, headers: corsHeaders });

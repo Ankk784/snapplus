@@ -79,10 +79,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Récupérer l'IP du client
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                     req.headers.get('cf-connecting-ip') || 
-                     req.headers.get('x-real-ip') || 
+    // IP réelle : cf-connecting-ip (posée par le proxy, non falsifiable),
+    // sinon la dernière entrée de x-forwarded-for.
+    const xff = req.headers.get('x-forwarded-for')?.split(',').map(s => s.trim()).filter(Boolean);
+    const clientIp = req.headers.get('cf-connecting-ip') ||
+                     (xff && xff.length ? xff[xff.length - 1] : null) ||
+                     req.headers.get('x-real-ip') ||
                      'Inconnue';
 
     const body = await req.json().catch(() => ({}));

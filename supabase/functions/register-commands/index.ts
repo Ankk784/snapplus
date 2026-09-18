@@ -34,6 +34,7 @@ serve(async (req) => {
       {
         name: 'say',
         description: 'Envoie un message dans le salon',
+        default_member_permissions: '8192',
         options: [
           { name: 'message', description: 'Le message à envoyer', type: 3, required: true }
         ]

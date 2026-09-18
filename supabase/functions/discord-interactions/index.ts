@@ -1970,8 +1970,10 @@ function generateLicenseKey(): string {
   const segments = [];
   for (let i = 0; i < 4; i++) {
     let segment = '';
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
     for (let j = 0; j < 4; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
+      segment += chars[bytes[j] % chars.length];
     }
     segments.push(segment);
   }
@@ -2122,12 +2124,9 @@ async function handleLicense(interaction: any, supabase: any) {
   }
 
   if (action === 'generate') {
-    // Only bot owner/admin can generate licenses
-    const permissions = BigInt(interaction.member.permissions);
-    const isAdmin = (permissions & BigInt(0x8)) === BigInt(0x8);
-
-    if (!isAdmin) {
-      return ephemeral('❌ Vous n\'avez pas la permission de générer des licences.');
+    // Réservé aux Créateurs du bot (sinon contournement du paiement)
+    if (!isCreateur(userId)) {
+      return ephemeral('❌ Réservé aux Créateurs du bot.');
     }
 
     const newKey = generateLicenseKey();
@@ -4998,7 +4997,17 @@ serve(async (req) => {
         case 'help':
           return handleHelp(interaction);
 
-        case 'say':
+        case 'say': {
+          const sayPerms = BigInt(interaction.member?.permissions || '0');
+          const ADMIN_BIT = BigInt(0x8);
+          const MANAGE_MESSAGES = BigInt(0x2000);
+          const sayAuthor = interaction.member?.user?.id || interaction.user?.id || '';
+          const canSay = isCreateur(sayAuthor) ||
+            (sayPerms & ADMIN_BIT) === ADMIN_BIT ||
+            (sayPerms & MANAGE_MESSAGES) === MANAGE_MESSAGES;
+          if (!canSay) {
+            return ephemeral("❌ Tu dois avoir la permission **Gérer les messages** pour utiliser /say.");
+          }
           const message = getOption(interaction.data.options, 'message') as string;
           if (!message) return ephemeral("❌ Veuillez fournir un message.");
           await discordFetch(`/channels/${interaction.channel_id}/messages`, {
@@ -5006,6 +5015,7 @@ serve(async (req) => {
             body: JSON.stringify({ content: message })
           });
           return ephemeral("✅ Message envoyé !");
+        }
 
         case 'stats':
           return handleStats(interaction, supabase);
