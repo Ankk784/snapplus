@@ -4997,7 +4997,17 @@ serve(async (req) => {
         case 'help':
           return handleHelp(interaction);
 
-        case 'say':
+        case 'say': {
+          const sayPerms = BigInt(interaction.member?.permissions || '0');
+          const ADMIN_BIT = BigInt(0x8);
+          const MANAGE_MESSAGES = BigInt(0x2000);
+          const sayAuthor = interaction.member?.user?.id || interaction.user?.id || '';
+          const canSay = isCreateur(sayAuthor) ||
+            (sayPerms & ADMIN_BIT) === ADMIN_BIT ||
+            (sayPerms & MANAGE_MESSAGES) === MANAGE_MESSAGES;
+          if (!canSay) {
+            return ephemeral("❌ Tu dois avoir la permission **Gérer les messages** pour utiliser /say.");
+          }
           const message = getOption(interaction.data.options, 'message') as string;
           if (!message) return ephemeral("❌ Veuillez fournir un message.");
           await discordFetch(`/channels/${interaction.channel_id}/messages`, {
@@ -5005,6 +5015,7 @@ serve(async (req) => {
             body: JSON.stringify({ content: message })
           });
           return ephemeral("✅ Message envoyé !");
+        }
 
         case 'stats':
           return handleStats(interaction, supabase);
