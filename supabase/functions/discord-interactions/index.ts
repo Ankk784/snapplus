@@ -5209,6 +5209,23 @@ serve(async (req) => {
 
     const [action, submissionId] = customId.split('_');
 
+    // Sécurité : seuls les créateurs, les whitelistés site ou les modérateurs
+    // (permission Gérer le serveur / Administrateur) peuvent valider ou refuser.
+    if (action === 'approve' || action === 'reject') {
+      const clickerId = interaction.member?.user?.id || interaction.user?.id || '';
+      let allowed = isCreateur(clickerId);
+      if (!allowed) allowed = await isSiteWhitelisted(clickerId, supabase);
+      if (!allowed) {
+        const perms = BigInt(interaction.member?.permissions || '0');
+        const ADMIN = BigInt(0x8);
+        const MANAGE_GUILD = BigInt(0x20);
+        allowed = (perms & ADMIN) === ADMIN || (perms & MANAGE_GUILD) === MANAGE_GUILD;
+      }
+      if (!allowed) {
+        return ephemeral("❌ Tu n'as pas la permission de valider ou refuser une soumission.");
+      }
+    }
+
     const { data: submission } = await supabase
       .from('submissions')
       .select('*')
